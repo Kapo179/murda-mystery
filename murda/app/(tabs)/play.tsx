@@ -4,20 +4,19 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import GameView from '../../components/game/views/GameView';
 import { RoleReveal } from '@/components/game/RoleReveal';
-import { useGameRole } from '@/hooks/useGameRole';
 import { Typography } from '@/components/Typography';
+import { GameProvider, useGame } from '@/contexts/GameContext';
 
-export default function GameScreen() {
+function GameContent() {
   const [isRevealing, setIsRevealing] = useState(true);
-  const { role } = useGameRole();
+  const { role } = useGame();
   const router = useRouter();
 
   // Add debug logging
   useEffect(() => {
     console.log('Play component mounted');
-    console.log('Current role:', role);
-    console.log('isRevealing:', isRevealing);
-  }, [role, isRevealing]);
+    console.log('Current role from context:', role);
+  }, [role]);
 
   if (!role) {
     console.log('No role available yet');
@@ -38,7 +37,7 @@ export default function GameScreen() {
         <RoleReveal 
           role={role} 
           onComplete={() => {
-            console.log('Role reveal complete');
+            console.log('Role reveal complete, transitioning to game view');
             setIsRevealing(false);
           }} 
         />
@@ -56,6 +55,14 @@ export default function GameScreen() {
         </>
       )}
     </View>
+  );
+}
+
+export default function GameScreen() {
+  return (
+    <GameProvider>
+      <GameContent />
+    </GameProvider>
   );
 }
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Image } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Typography } from '@/components/Typography';
 import { CustomMapView } from '@/components/game/MapView';
 import { sharedStyles } from './shared/styles';
@@ -10,12 +11,23 @@ const meetingEmoji = require('@/assets/images/emojis/assets/Loudspeaker/3D/louds
 
 export function MafiaView() {
   const [meetingsLeft, setMeetingsLeft] = React.useState(1);
+  const router = useRouter();
 
   const handleEmergencyMeeting = () => {
     if (meetingsLeft > 0) {
       setMeetingsLeft(prev => prev - 1);
       // Handle emergency meeting logic
     }
+  };
+
+  const handleTakePhoto = (photoType: 'kill' | 'evidence') => {
+    router.push({
+      pathname: '/camera',
+      params: { 
+        type: photoType,
+        role: 'mafia'
+      }
+    });
   };
 
   return (
@@ -40,7 +52,7 @@ export function MafiaView() {
 
         <TouchableOpacity 
           style={[sharedStyles.actionButton, { backgroundColor: '#FF3B30' }]}
-          onPress={() => {}}
+          onPress={() => handleTakePhoto('kill')}
         >
           <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
           <Typography style={sharedStyles.actionText}>Take Kill Photo</Typography>
@@ -48,7 +60,7 @@ export function MafiaView() {
 
         <TouchableOpacity 
           style={[sharedStyles.actionButton, { backgroundColor: '#FF3B30' }]}
-          onPress={() => {}}
+          onPress={() => handleTakePhoto('evidence')}
         >
           <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
           <Typography style={sharedStyles.actionText}>Take Evidence Photo</Typography>

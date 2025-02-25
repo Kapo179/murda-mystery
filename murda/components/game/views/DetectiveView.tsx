@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Image } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Typography } from '@/components/Typography';
 import { CustomMapView } from '@/components/game/MapView';
 import { sharedStyles } from './shared/styles';
@@ -10,12 +11,23 @@ const cameraEmoji = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.p
 
 export function DetectiveView() {
   const [meetingsLeft, setMeetingsLeft] = React.useState(1);
+  const router = useRouter();
 
   const handleEmergencyMeeting = () => {
     if (meetingsLeft > 0) {
       setMeetingsLeft(prev => prev - 1);
       // Handle emergency meeting logic
     }
+  };
+
+  const handleTakePhoto = () => {
+    router.push({
+      pathname: '/camera',
+      params: { 
+        type: 'evidence',
+        role: 'detective'
+      }
+    });
   };
 
   return (
@@ -48,7 +60,7 @@ export function DetectiveView() {
 
         <TouchableOpacity 
           style={[sharedStyles.actionButton, { backgroundColor: '#4B9EF4' }]}
-          onPress={() => {}}
+          onPress={handleTakePhoto}
         >
           <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
           <Typography style={sharedStyles.actionText}>Take Evidence Photo</Typography>

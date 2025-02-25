@@ -17,9 +17,16 @@ export function RoleReveal({ role, onComplete }: RoleRevealProps) {
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
   const iconScaleAnim = React.useRef(new Animated.Value(0)).current;
+  
+  // Move this ref to the component body
+  const initialRoleRef = React.useRef(role);
 
   useEffect(() => {
     console.log('RoleReveal mounted with role:', role);
+    
+    // Now we can safely access the ref value
+    const initialRole = initialRoleRef.current;
+    
     Animated.sequence([
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -47,7 +54,7 @@ export function RoleReveal({ role, onComplete }: RoleRevealProps) {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      console.log('Animation sequence complete');
+      console.log('Animation sequence complete with role:', initialRole);
       onComplete();
     });
   }, []);

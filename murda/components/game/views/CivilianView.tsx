@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Image } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Typography } from '@/components/Typography';
 import { CustomMapView } from '@/components/game/MapView';
 import { sharedStyles } from './shared/styles';
@@ -9,12 +10,23 @@ const meetingEmoji = require('@/assets/images/emojis/assets/Loudspeaker/3D/louds
 
 export function CivilianView() {
   const [meetingsLeft, setMeetingsLeft] = React.useState(1);
+  const router = useRouter();
 
   const handleEmergencyMeeting = () => {
     if (meetingsLeft > 0) {
       setMeetingsLeft(prev => prev - 1);
       // Handle emergency meeting logic
     }
+  };
+
+  const handleTakePhoto = () => {
+    router.push({
+      pathname: '/camera',
+      params: { 
+        type: 'evidence',
+        role: 'civilian'
+      }
+    });
   };
 
   return (
@@ -39,7 +51,7 @@ export function CivilianView() {
 
         <TouchableOpacity 
           style={[sharedStyles.actionButton, { backgroundColor: '#32D74B' }]}
-          onPress={() => {}}
+          onPress={handleTakePhoto}
         >
           <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
           <Typography style={sharedStyles.actionText}>Take Evidence Photo</Typography>
