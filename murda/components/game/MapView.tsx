@@ -3,13 +3,9 @@ import { StyleSheet, View, Dimensions, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Mapbox from '@rnmapbox/maps';
 import { useLocation } from '@/hooks/useLocation';
-// Comment out the problematic import for now
-// import { MAPBOX_ACCESS_TOKEN } from '@env';
+import { MAPBOX_ACCESS_TOKEN } from '@env';
 import Constants from 'expo-constants';
 import { Typography } from '@/components/Typography';
-
-// Temporary hardcoded token or use a fallback mechanism
-const MAPBOX_ACCESS_TOKEN = 'pk.placeholder_token_replace_this';
 
 // Custom dark theme style URL - you can create your own style in Mapbox Studio
 const CUSTOM_STYLE_URL = 'mapbox://styles/kapo179/custom-dark-style';
@@ -25,12 +21,17 @@ export function CustomMapView(props: MapViewProps) {
   const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0 });
   const isExpoGo = Constants.appOwnership === 'expo';
 
-  // Add error handling for Mapbox initialization
+  // Use the token from env
   useEffect(() => {
     try {
-      Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+      if (MAPBOX_ACCESS_TOKEN) {
+        console.log("Setting Mapbox access token");
+        Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+      } else {
+        console.error("Mapbox token is undefined");
+      }
     } catch (err) {
-      console.warn('Mapbox initialization error:', err);
+      console.error('Error initializing Mapbox:', err);
     }
   }, []);
 
