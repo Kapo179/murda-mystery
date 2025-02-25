@@ -11,7 +11,7 @@ import {
   Dimensions,
   Platform 
 } from 'react-native';
-import { CameraView as ExpoCameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView as ExpoCameraView, CameraType, useCameraPermissions, Camera } from 'expo-camera';
 import { Typography } from '@/components/Typography';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +42,7 @@ export function CameraView({
   onClose, 
   onPhotoTaken 
 }: CameraViewProps) {
+  // 1. STATE HOOKS - Group all useState hooks together
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isCapturing, setIsCapturing] = useState(false);
@@ -52,192 +53,195 @@ export function CameraView({
   );
   const [isVideoMode, setIsVideoMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [isRecordingLocked, setIsRecordingLocked] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [recordingTimer, setRecordingTimer] = useState<NodeJS.Timeout | null>(null);
-  const [longPressTriggered, setLongPressTriggered] = useState(false);
   
-  const cameraRef = useRef(null);
+  // 2. REF HOOKS - Group all useRef hooks together
+  const cameraRef = useRef<Camera | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const shutterScale = useRef(new Animated.Value(1)).current;
+  
+  // 3. CONTEXT HOOKS
   const insets = useSafeAreaInsets();
   
-  // New animated values for the shutter button
-  const shutterScale = useRef(new Animated.Value(1)).current;
-  const recordButtonX = useRef(new Animated.Value(0)).current;
-  const lockIndicatorOpacity = useRef(new Animated.Value(0)).current;
+  // 4. EFFECT HOOKS - Place all useEffect hooks together
+  // Cleanup effect for unmounting
+  useEffect(() => {
+    return () => {
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+      }
+      
+      if (isRecording && cameraRef.current) {
+        try {
+          cameraRef.current.stopRecording();
+        } catch (error) {
+          console.error('Error stopping recording during unmount:', error);
+        }
+      }
+    };
+  }, [recordingTimer, isRecording]);
   
-  // Screen dimensions
+  // 5. Screen dimensions constants (not hooks)
   const { width: screenWidth } = Dimensions.get('window');
   const LOCK_SLIDE_THRESHOLD = 80; // pixels to slide to lock recording
   
-  // Setup PanResponder for the shutter button
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+  // 6. Function definitions remain the same
+  function takePicture() {
+    if (!cameraRef.current || isCapturing || shotsRemaining <= 0) return;
+    
+    try {
+      flashScreen();
+      cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        skipProcessing: Platform.OS === 'android',
+      }).then((photo) => {
+        console.log('Photo taken:', photo.uri);
+        setLatestPhoto(photo.uri);
+        setShotsRemaining(prev => prev - 1);
+        setIsCapturing(false);
+        onPhotoTaken(photo.uri);
+        
+        // Success haptic
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      });
+    } catch (error) {
+      console.error('Error taking picture:', error);
+      setIsCapturing(false);
+      onPhotoTaken('');
       
-      onPanResponderGrant: () => {
-        console.log('Shutter button pressed');
-        // Start the long press timer
-        if (shotsRemaining <= 0) return;
+      // Error haptic
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }
+
+  function startVideoRecording() {
+    if (!cameraRef.current || isRecording || shotsRemaining <= 0) return;
+    
+    console.log('Starting video recording...');
+    
+    // Set state first
+    setIsRecording(true);
+    
+    try {
+      // Start recording timer
+      let seconds = 0;
+      const timer = setInterval(() => {
+        seconds += 1;
+        setRecordingDuration(seconds);
         
-        setLongPressTriggered(false);
-        
-        // Animate button scale down slightly to provide visual feedback
-        Animated.timing(shutterScale, {
-          toValue: 0.9,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-        
-        // After a delay, transition to video recording if still pressed
-        setTimeout(() => {
-          if (shotsRemaining <= 0) return;
-          
-          // Only trigger if finger is still down and not already recording
-          if (!isRecording && !isCapturing) {
-            console.log('Long press detected - starting recording');
-            setLongPressTriggered(true);
-            
-            // Provide haptic feedback
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            
-            // Show lock indicator
-            Animated.timing(lockIndicatorOpacity, {
-              toValue: 1,
-              duration: 200,
-              useNativeDriver: true,
-            }).start();
-            
-            // Start video recording
-            startVideoRecording();
-          }
-        }, 500); // 500ms for long press
-      },
-      
-      onPanResponderMove: (_, gestureState) => {
-        // Only handle horizontal movement if we're recording
-        if (isRecording && !isRecordingLocked) {
-          // Update position with bounds (don't let it go left of origin)
-          const newX = Math.max(0, gestureState.dx);
-          recordButtonX.setValue(newX);
-          
-          // Check if we should lock recording
-          if (newX > LOCK_SLIDE_THRESHOLD) {
-            setIsRecordingLocked(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            
-            // Animate to final "locked" position
-            Animated.spring(recordButtonX, {
-              toValue: LOCK_SLIDE_THRESHOLD + 10,
-              useNativeDriver: true,
-              friction: 7,
-            }).start();
-            
-            // Hide the lock indicator
-            Animated.timing(lockIndicatorOpacity, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: true,
-            }).start();
-          }
-        }
-      },
-      
-      onPanResponderRelease: () => {
-        console.log('Shutter button released');
-        
-        // Reset button scale
-        Animated.timing(shutterScale, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-        
-        // Hide lock indicator
-        Animated.timing(lockIndicatorOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-        
-        // Reset button position if not locked
-        if (!isRecordingLocked) {
-          Animated.spring(recordButtonX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-        
-        // If we were recording but not locked, stop recording
-        if (isRecording && !isRecordingLocked) {
-          stopVideoRecording();
-        }
-        
-        // If it was a short tap (not a long press) and not already capturing, take a photo
-        if (!longPressTriggered && !isCapturing && !isRecording && shotsRemaining > 0) {
-          startPhotoCapture();
-        }
-      },
-      
-      onPanResponderTerminate: () => {
-        // Similar cleanup to release
-        Animated.timing(shutterScale, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-        
-        Animated.timing(lockIndicatorOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-        
-        if (!isRecordingLocked) {
-          Animated.spring(recordButtonX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-          
+        // Auto-stop after 30 seconds
+        if (seconds >= 30) {
           if (isRecording) {
             stopVideoRecording();
           }
         }
+      }, 1000);
+      
+      setRecordingTimer(timer);
+      
+      // Vibration - wrap in try/catch
+      try {
+        if (Platform.OS === 'android') {
+          Vibration.vibrate(200);
+        }
+      } catch (vibrationError) {
+        console.warn('Vibration error:', vibrationError);
+        // Non-critical, continue without vibration
       }
-    })
-  ).current;
-  
-  // Animation for the flash effect
-  const flashScreen = () => {
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+      
+      // Use simpler video recording settings
+      const recordingOptions = {
+        quality: Platform.OS === 'ios' ? '720p' : 'high',
+        maxDuration: 30,
+        mute: false,
+      };
+      
+      console.log('Recording with options:', recordingOptions);
+      
+      cameraRef.current.recordAsync(recordingOptions)
+        .then((video: { uri: string }) => {
+          console.log('Video recording complete:', video.uri);
+          
+          // Clear timer
+          if (recordingTimer) {
+            clearInterval(recordingTimer);
+          }
+          
+          // Update state
+          setLatestPhoto(video.uri);
+          setShotsRemaining(prev => prev - 1);
+          setRecordingTimer(null);
+          setRecordingDuration(0);
+          setIsRecording(false);
+          
+          // Success haptic
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch (hapticError) {
+            console.warn('Haptic error:', hapticError);
+          }
+          
+          // Notify parent
+          onPhotoTaken(video.uri, true);
+        })
+        .catch((recordError) => {
+          console.error('Recording error:', recordError);
+          
+          // Clean up on error
+          if (recordingTimer) {
+            clearInterval(recordingTimer);
+          }
+          
+          setRecordingTimer(null);
+          setRecordingDuration(0);
+          setIsRecording(false);
+        });
+    } catch (outerError) {
+      console.error('Fatal recording error:', outerError);
+      
+      // Reset all state
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+      }
+      
+      setRecordingTimer(null);
+      setRecordingDuration(0);
+      setIsRecording(false);
+    }
+  }
 
-  // Toggle between photo and video mode
-  const toggleCameraMode = () => {
-    setIsVideoMode(!isVideoMode);
-  };
+  function stopVideoRecording() {
+    console.log('Stopping video recording...');
+    
+    if (!cameraRef.current || !isRecording) return;
+    
+    try {
+      cameraRef.current.stopRecording();
+      
+      // Vibration feedback
+      try {
+        if (Platform.OS === 'android') {
+          Vibration.vibrate(100);
+        }
+      } catch (vibrationError) {
+        console.warn('Vibration error:', vibrationError);
+      }
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+    } finally {
+      // Always clean up, even if there's an error
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+      }
+      
+      setRecordingTimer(null);
+      setRecordingDuration(0);
+      setIsRecording(false);
+    }
+  }
 
-  // Format seconds to MM:SS
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes < 10 ? '0' : ''}${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-  };
-
-  // Start photo capture with countdown
-  const startPhotoCapture = () => {
+  function startPhotoCapture() {
     if (isCapturing || shotsRemaining <= 0) return;
     
     setIsCapturing(true);
@@ -257,10 +261,35 @@ export function CameraView({
         return prev - 1;
       });
     }, 1000);
-  };
+  }
+  
+  function flashScreen() {
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }
+  
+  function formatDuration(seconds: number) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes < 10 ? '0' : ''}${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+  }
 
-  // Get appropriate role badge
-  const getRoleBadge = () => {
+  function toggleCameraFacing() {
+    if (isRecording) return; // Don't allow camera switching while recording
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
+  }
+
+  function getRoleBadge() {
     switch (role) {
       case 'mafia':
         return mafiaBadge;
@@ -269,13 +298,38 @@ export function CameraView({
       default:
         return civilianBadge;
     }
-  };
+  }
 
-  // Handle permission request
+  // Replace PanResponder with a simpler button press handler
+  function handleShutterPress() {
+    if (shotsRemaining <= 0) return;
+    
+    if (isVideoMode) {
+      if (isRecording) {
+        stopVideoRecording();
+      } else {
+        startVideoRecording();
+      }
+    } else {
+      // Photo mode
+      startPhotoCapture();
+    }
+  }
+
+  // Toggle between photo and video modes
+  function toggleCameraMode() {
+    if (isRecording) return; // Don't allow mode switching while recording
+    setIsVideoMode(!isVideoMode);
+    
+    // Provide haptic feedback on mode change
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+
+  // 8. Permission checks and rendering logic
   if (!permission) {
     return <View style={styles.container} />;
   }
-
+  
   if (!permission.granted) {
     return (
       <View style={[styles.container, styles.permissionContainer]}>
@@ -291,127 +345,7 @@ export function CameraView({
     );
   }
 
-  function toggleCameraFacing() {
-    if (isRecording) return; // Don't allow camera switching while recording
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
-  }
-
-  const takePicture = async () => {
-    if (!cameraRef.current || isCapturing || shotsRemaining <= 0) return;
-    
-    try {
-      flashScreen();
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: Platform.OS === 'android',
-      });
-      
-      console.log('Photo taken:', photo.uri);
-      setLatestPhoto(photo.uri);
-      setShotsRemaining(prev => prev - 1);
-      setIsCapturing(false);
-      onPhotoTaken(photo.uri);
-      
-      // Success haptic
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      console.error('Error taking picture:', error);
-      setIsCapturing(false);
-      onPhotoTaken('');
-      
-      // Error haptic
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  };
-
-  const startVideoRecording = async () => {
-    if (!cameraRef.current || isRecording || shotsRemaining <= 0) return;
-    
-    try {
-      console.log('Starting video recording...');
-      setIsRecording(true);
-      
-      // Start recording timer
-      let seconds = 0;
-      const timer = setInterval(() => {
-        seconds += 1;
-        setRecordingDuration(seconds);
-        
-        // Auto-stop after 30 seconds to prevent massive files
-        if (seconds >= 30) {
-          stopVideoRecording();
-        }
-      }, 1000);
-      
-      setRecordingTimer(timer);
-      
-      // Vibrate to indicate recording start
-      if (Platform.OS === 'android') {
-        Vibration.vibrate(200);
-      }
-      
-      await cameraRef.current.recordAsync({
-        quality: '720p',
-        maxDuration: 30,
-        mute: false,
-      }).then(video => {
-        console.log('Video recording complete:', video.uri);
-        setLatestPhoto(video.uri); // Use the same preview for videos
-        setShotsRemaining(prev => prev - 1);
-        clearInterval(recordingTimer);
-        setRecordingTimer(null);
-        setRecordingDuration(0);
-        setIsRecording(false);
-        setIsRecordingLocked(false);
-        onPhotoTaken(video.uri, true);
-        
-        // Reset animation values
-        recordButtonX.setValue(0);
-        
-        // Success haptic
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      });
-    } catch (error) {
-      console.error('Error recording video:', error);
-      if (recordingTimer) {
-        clearInterval(recordingTimer);
-        setRecordingTimer(null);
-      }
-      setRecordingDuration(0);
-      setIsRecording(false);
-      setIsRecordingLocked(false);
-      
-      // Reset animation values
-      recordButtonX.setValue(0);
-      
-      // Error haptic
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  };
-
-  const stopVideoRecording = async () => {
-    if (!cameraRef.current || !isRecording) return;
-    
-    try {
-      console.log('Stopping video recording...');
-      await cameraRef.current.stopRecording();
-      
-      // Vibrate to indicate recording stop
-      if (Platform.OS === 'android') {
-        Vibration.vibrate(100);
-      }
-    } catch (error) {
-      console.error('Error stopping video recording:', error);
-      if (recordingTimer) {
-        clearInterval(recordingTimer);
-        setRecordingTimer(null);
-      }
-      setRecordingDuration(0);
-      setIsRecording(false);
-      setIsRecordingLocked(false);
-    }
-  };
-
+  // 9. Main render
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -459,11 +393,6 @@ export function CameraView({
               <Typography style={styles.recordingText}>
                 {formatDuration(recordingDuration)}
               </Typography>
-              {isRecordingLocked && (
-                <View style={styles.lockedBadge}>
-                  <Typography style={styles.lockedText}>LOCKED</Typography>
-                </View>
-              )}
             </View>
           )}
           
@@ -474,60 +403,72 @@ export function CameraView({
               <Typography style={styles.shotsText}>
                 {shotsRemaining} {shotsRemaining === 1 ? 'Shot' : 'Shots'} Left
               </Typography>
-              <Typography style={styles.hintText}>
-                {isRecording 
-                  ? isRecordingLocked 
-                    ? 'Tap to end recording' 
-                    : 'Slide right to lock recording'
-                  : 'Tap for photo, hold for video'}
-              </Typography>
             </View>
             
-            {/* Enhanced Shutter Button with PanResponder */}
-            <View style={styles.shutterContainer}>
-              {/* Slide-to-lock indicator */}
-              <Animated.View style={[
-                styles.lockIndicator,
-                { opacity: lockIndicatorOpacity }
-              ]}>
-                <Image 
-                  source={require('@/assets/images/emojis/assets/Right arrow/3D/right_arrow_3d.png')} 
-                  style={styles.lockArrow} 
-                />
-                <Typography style={styles.lockText}>SLIDE TO LOCK</Typography>
-              </Animated.View>
-              
-              {/* The actual shutter button */}
-              <Animated.View 
+            {/* Mode toggle tab above shutter */}
+            <View style={styles.modeToggleContainer}>
+              <TouchableOpacity 
                 style={[
-                  styles.shutterTouchArea,
-                  { 
-                    transform: [
-                      { translateX: recordButtonX },
-                      { scale: shutterScale }
-                    ] 
-                  }
+                  styles.modeTab, 
+                  !isVideoMode && styles.activeTab
                 ]}
-                {...panResponder.panHandlers}
+                onPress={() => toggleCameraMode()}
+                disabled={isRecording}
               >
-                {isRecording ? (
-                  <View style={[
-                    styles.recordingShutterButton,
-                    isRecordingLocked && styles.recordingLockedButton
-                  ]}>
-                    <View style={styles.recordingButtonInner} />
-                  </View>
-                ) : (
-                  <View style={styles.shutterButton}>
-                    {countdown > 0 ? (
-                      <Text style={styles.countdownText}>{countdown}</Text>
-                    ) : (
-                      <View style={styles.shutterButtonInner} />
-                    )}
-                  </View>
-                )}
-              </Animated.View>
+                <Image 
+                  source={photoIcon} 
+                  style={[
+                    styles.modeIcon, 
+                    !isVideoMode && styles.activeIcon,
+                    isRecording && styles.disabledIcon
+                  ]} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.modeTab, 
+                  isVideoMode && styles.activeTab
+                ]}
+                onPress={() => toggleCameraMode()}
+                disabled={isRecording}
+              >
+                <Image 
+                  source={videoIcon} 
+                  style={[
+                    styles.modeIcon, 
+                    isVideoMode && styles.activeIcon,
+                    isRecording && styles.disabledIcon
+                  ]} 
+                />
+              </TouchableOpacity>
             </View>
+            
+            {/* Simplified Shutter Button */}
+            <TouchableOpacity 
+              style={[
+                styles.shutterButton,
+                isVideoMode && styles.videoShutterButton,
+                isRecording && styles.recordingButton,
+                shotsRemaining <= 0 && styles.disabledButton
+              ]}
+              onPress={handleShutterPress}
+              disabled={shotsRemaining <= 0}
+            >
+              {isRecording ? (
+                <View style={styles.stopButton} />
+              ) : (
+                <>
+                  {countdown > 0 ? (
+                    <Text style={styles.countdownText}>{countdown}</Text>
+                  ) : (
+                    <View style={[
+                      styles.shutterButtonInner,
+                      isVideoMode && styles.videoButtonInner
+                    ]} />
+                  )}
+                </>
+              )}
+            </TouchableOpacity>
             
             {/* Camera flip button */}
             <TouchableOpacity 
@@ -559,11 +500,11 @@ export function CameraView({
           <TouchableOpacity 
             style={[styles.closeButton, { top: insets.top > 0 ? insets.top + 10 : 20 }]}
             onPress={onClose}
-            disabled={isRecording && !isRecordingLocked}
+            disabled={isRecording}
           >
             <Image source={closeIcon} style={[
               styles.closeIcon,
-              (isRecording && !isRecordingLocked) && styles.disabledIcon
+              isRecording && styles.disabledIcon
             ]} />
           </TouchableOpacity>
         </View>
@@ -712,48 +653,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FF3B30',
   },
-  recordingLockedButton: {
-    borderColor: '#FF7B30',
-    backgroundColor: 'rgba(255, 123, 48, 0.2)',
-  },
   recordingButtonInner: {
     width: 30,
     height: 30,
     borderRadius: 4,
     backgroundColor: '#FF3B30',
-  },
-  lockIndicator: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    right: -120,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    zIndex: 1,
-  },
-  lockArrow: {
-    width: 16,
-    height: 16,
-    marginRight: 6,
-  },
-  lockText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  lockedBadge: {
-    backgroundColor: '#FF7B30',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-  lockedText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
   flipButton: {
     flex: 1,
@@ -837,5 +741,58 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  countdownText: {
+    fontSize: 32, 
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  modeToggleContainer: {
+    position: 'absolute',
+    flexDirection: 'row',
+    top: -40,
+    left: '50%',
+    marginLeft: -60,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    width: 120,
+    height: 36,
+    overflow: 'hidden',
+  },
+  modeTab: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  activeTab: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modeIcon: {
+    width: 20,
+    height: 20,
+    opacity: 0.7,
+  },
+  activeIcon: {
+    opacity: 1,
+  },
+  videoShutterButton: {
+    borderColor: '#FF3B30',
+  },
+  recordingButton: {
+    backgroundColor: 'rgba(255, 59, 48, 0.3)',
+    borderColor: '#FF3B30',
+  },
+  stopButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
+  },
+  disabledButton: {
+    opacity: 0.4,
+  },
+  videoButtonInner: {
+    backgroundColor: 'rgba(255, 59, 48, 0.2)',
   },
 }); 
