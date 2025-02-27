@@ -1,73 +1,87 @@
 import React from 'react';
-import { View, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { CustomMapView } from '../MapView';
 import { useRouter } from 'expo-router';
-import { Typography } from '@/components/Typography';
-import { CustomMapView } from '@/components/game/MapView';
-import { sharedStyles } from './shared/styles';
+import { ActionButton } from '../ActionButton';
 
-const cameraEmoji = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.png');
-const locationEmoji = require('@/assets/images/emojis/assets/Round pushpin/3D/round_pushpin_3d.png');
-const meetingEmoji = require('@/assets/images/emojis/assets/Loudspeaker/3D/loudspeaker_3d.png');
+// Import emoji assets
+const killIcon = require('@/assets/images/emojis/assets/Skull and crossbones/3D/skull_and_crossbones_3d.png');
+const cameraIcon = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.png');
+const emergencyIcon = require('@/assets/images/emojis/assets/Police car light/3D/police_car_light_3d.png');
 
 export function MafiaView() {
-  const [meetingsLeft, setMeetingsLeft] = React.useState(1);
   const router = useRouter();
-
-  const handleEmergencyMeeting = () => {
-    if (meetingsLeft > 0) {
-      setMeetingsLeft(prev => prev - 1);
-      // Handle emergency meeting logic
-    }
-  };
-
-  const handleTakePhoto = (photoType: 'kill' | 'evidence') => {
+  
+  const handleKill = () => {
     router.push({
       pathname: '/camera',
-      params: { 
-        type: photoType,
-        role: 'mafia'
-      }
+      params: { type: 'kill', role: 'mafia' }
     });
   };
-
+  
+  const handleTakeEvidence = () => {
+    router.push({
+      pathname: '/camera',
+      params: { type: 'evidence', role: 'mafia' }
+    });
+  };
+  
+  const handleEmergencyMeeting = () => {
+    console.log('Emergency meeting requested by mafia');
+    // Meeting logic
+  };
+  
   return (
-    <View style={sharedStyles.container}>
-      <CustomMapView showAllPlayers />
-      <View style={sharedStyles.actions}>
-        <TouchableOpacity 
-          style={sharedStyles.emergencyButton}
+    <View style={styles.container}>
+      {/* Map view placed behind buttons */}
+      <View style={styles.mapContainer}>
+        <CustomMapView showAllPlayers />
+      </View>
+      
+      {/* Action buttons container */}
+      <View style={styles.actionButtonsContainer}>
+        <ActionButton
+          icon={killIcon}
+          onPress={handleKill}
+          variant="kill"
+          size="medium"
+        />
+        
+        <ActionButton
+          icon={emergencyIcon}
           onPress={handleEmergencyMeeting}
-          disabled={meetingsLeft === 0}
-        >
-          <Image source={meetingEmoji} style={sharedStyles.actionIcon} />
-          <Typography style={sharedStyles.actionText}>
-            Emergency Meeting
-          </Typography>
-          <View style={sharedStyles.emergencyCounter}>
-            <Typography style={sharedStyles.emergencyCounterText}>
-              {meetingsLeft}
-            </Typography>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[sharedStyles.actionButton, { backgroundColor: '#FF3B30' }]}
-          onPress={() => handleTakePhoto('kill')}
-        >
-          <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
-          <Typography style={sharedStyles.actionText}>Take Kill Photo</Typography>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[sharedStyles.actionButton, { backgroundColor: '#FF3B30' }]}
-          onPress={() => handleTakePhoto('evidence')}
-        >
-          <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
-          <Typography style={sharedStyles.actionText}>Take Evidence Photo</Typography>
-        </TouchableOpacity>
+          variant="emergency"
+          size="medium"
+        />
+        
+        <ActionButton
+          icon={cameraIcon}
+          onPress={handleTakeEvidence}
+          variant="evidence"
+          size="medium"
+        />
       </View>
     </View>
   );
 }
 
-export default MafiaView;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: 'relative',
+  },
+  mapContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  actionButtonsContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    zIndex: 2,
+  }
+});

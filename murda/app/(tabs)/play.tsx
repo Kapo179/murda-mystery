@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import GameView from '../../components/game/views/GameView';
@@ -42,17 +42,7 @@ function GameContent() {
           }} 
         />
       ) : (
-        <>
-          <GameView />
-          
-          {/* Temporary Back Button - can be removed once map is fully working */}
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Typography style={styles.backButtonText}>Back to Lobby</Typography>
-          </TouchableOpacity>
-        </>
+        <GameView />
       )}
     </View>
   );
@@ -80,18 +70,5 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#FFF',
     fontSize: 18,
-  },
-  backButton: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#FF3131',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-  },
-  backButtonText: {
-    color: '#FFF',
-    fontSize: 16,
   }
 }); 

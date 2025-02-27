@@ -76,49 +76,59 @@ export function CustomMapView(props: MapViewProps) {
   return (
     <View style={styles.container} onLayout={onLayout}>
       {mapDimensions.width > 0 && mapDimensions.height > 0 && (
-        <Mapbox.MapView
-          style={{
-            width: mapDimensions.width,
-            height: mapDimensions.height,
-          }}
-          styleURL={Mapbox.StyleURL.Dark}
-          zoomEnabled
-          scrollEnabled
-          rotateEnabled={false}
-          attributionEnabled={false}
-          logoEnabled={false}
-          compassEnabled={false}
-          scaleBarEnabled={false}
-        >
-          <Mapbox.Camera
-            zoomLevel={15}
-            centerCoordinate={[longitude || -122.4324, latitude || 37.78825]}
-            animationMode="flyTo"
-            animationDuration={2000}
+        <>
+          <Mapbox.MapView
+            style={{
+              width: mapDimensions.width,
+              height: mapDimensions.height,
+            }}
+            styleURL={Mapbox.StyleURL.Dark}
+            zoomEnabled
+            scrollEnabled
+            rotateEnabled={false}
+            attributionEnabled={false}
+            logoEnabled={false}
+            compassEnabled={false}
+            scaleBarEnabled={false}
+          >
+            <Mapbox.Camera
+              zoomLevel={15}
+              centerCoordinate={[longitude || -122.4324, latitude || 37.78825]}
+              animationMode="flyTo"
+              animationDuration={2000}
+            />
+            
+            <Mapbox.UserLocation
+              visible
+              animated
+            />
+
+            {/* Custom location marker */}
+            {latitude && longitude && (
+              <Mapbox.PointAnnotation
+                id="userLocation"
+                coordinate={[longitude, latitude]}
+              >
+                <View style={styles.locationMarker} />
+              </Mapbox.PointAnnotation>
+            )}
+          </Mapbox.MapView>
+          
+          {/* Add a top gradient overlay for smooth transition */}
+          <LinearGradient
+            colors={['rgba(0, 0, 0, 0.3)', 'transparent']}
+            style={styles.topGradient}
+            pointerEvents="none"
           />
           
-          <Mapbox.UserLocation
-            visible
-            animated
+          {/* Keep existing bottom gradient */}
+          <LinearGradient
+            colors={['transparent', 'rgba(0, 0, 0, 0.8)']}
+            style={styles.bottomGradient}
+            pointerEvents="none"
           />
-
-          {/* Custom location marker */}
-          {latitude && longitude && (
-            <Mapbox.PointAnnotation
-              id="userLocation"
-              coordinate={[longitude, latitude]}
-            >
-              <View style={styles.locationMarker} />
-            </Mapbox.PointAnnotation>
-          )}
-        </Mapbox.MapView>
+        </>
       )}
-      
-      <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.8)']}
-        style={styles.gradient}
-        pointerEvents="none"
-      />
     </View>
   );
 }
@@ -126,9 +136,11 @@ export function CustomMapView(props: MapViewProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
+    zIndex: 2,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 0,
     marginHorizontal: 0,
     overflow: 'hidden',
@@ -190,5 +202,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 16,
     textAlign: 'center',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    zIndex: 3,
+  },
+  bottomGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 150,
+    zIndex: 3,
   },
 }); 

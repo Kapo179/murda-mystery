@@ -1,73 +1,80 @@
 import React from 'react';
-import { View, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { CustomMapView } from '../MapView';
 import { useRouter } from 'expo-router';
-import { Typography } from '@/components/Typography';
-import { CustomMapView } from '@/components/game/MapView';
-import { sharedStyles } from './shared/styles';
+import { ActionButton } from '../ActionButton';
 
-const magnifyingGlassEmoji = require('@/assets/images/emojis/assets/Magnifying glass tilted left/3D/magnifying_glass_tilted_left_3d.png');
-const meetingEmoji = require('@/assets/images/emojis/assets/Loudspeaker/3D/loudspeaker_3d.png');
-const cameraEmoji = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.png');
+// Import emoji assets
+const cameraIcon = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.png');
+const emergencyIcon = require('@/assets/images/emojis/assets/Police car light/3D/police_car_light_3d.png');
+const detectiveIcon = require('@/assets/images/emojis/assets/Detective/Default/3D/detective_3d_default.png');
 
 export function DetectiveView() {
-  const [meetingsLeft, setMeetingsLeft] = React.useState(1);
   const router = useRouter();
-
-  const handleEmergencyMeeting = () => {
-    if (meetingsLeft > 0) {
-      setMeetingsLeft(prev => prev - 1);
-      // Handle emergency meeting logic
-    }
-  };
-
-  const handleTakePhoto = () => {
+  
+  const handleTakeEvidence = () => {
     router.push({
       pathname: '/camera',
-      params: { 
-        type: 'evidence',
-        role: 'detective'
-      }
+      params: { type: 'evidence', role: 'detective' }
     });
   };
-
+  
+  const handleEmergencyMeeting = () => {
+    console.log('Emergency meeting requested by detective');
+    // Meeting logic
+  };
+  
   return (
-    <View style={sharedStyles.container}>
-      <CustomMapView showLastMafiaLocation />
-      <View style={sharedStyles.actions}>
-        <TouchableOpacity 
-          style={sharedStyles.emergencyButton}
+    <View style={styles.container}>
+      {/* Map view placed behind buttons */}
+      <View style={styles.mapContainer}>
+        <CustomMapView showLastMafiaLocation />
+      </View>
+      
+      {/* Action buttons container */}
+      <View style={styles.actionButtonsContainer}>
+        <ActionButton
+          icon={detectiveIcon}
+          onPress={() => console.log('Investigate area')}
+          variant="default"
+          size="medium"
+        />
+        
+        <ActionButton
+          icon={emergencyIcon}
           onPress={handleEmergencyMeeting}
-          disabled={meetingsLeft === 0}
-        >
-          <Image source={meetingEmoji} style={sharedStyles.actionIcon} />
-          <Typography style={sharedStyles.actionText}>
-            Emergency Meeting
-          </Typography>
-          <View style={sharedStyles.emergencyCounter}>
-            <Typography style={sharedStyles.emergencyCounterText}>
-              {meetingsLeft}
-            </Typography>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[sharedStyles.actionButton, { backgroundColor: '#4B9EF4' }]}
-          onPress={() => {}}
-        >
-          <Image source={magnifyingGlassEmoji} style={sharedStyles.actionIcon} />
-          <Typography style={sharedStyles.actionText}>Investigate Area</Typography>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[sharedStyles.actionButton, { backgroundColor: '#4B9EF4' }]}
-          onPress={handleTakePhoto}
-        >
-          <Image source={cameraEmoji} style={sharedStyles.actionIcon} />
-          <Typography style={sharedStyles.actionText}>Take Evidence Photo</Typography>
-        </TouchableOpacity>
+          variant="emergency"
+          size="medium"
+        />
+        
+        <ActionButton
+          icon={cameraIcon}
+          onPress={handleTakeEvidence}
+          variant="evidence"
+          size="medium"
+        />
       </View>
     </View>
   );
 }
 
-export default DetectiveView;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: 'relative',
+  },
+  mapContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  actionButtonsContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    zIndex: 2,
+  }
+});

@@ -18,6 +18,11 @@ export function useGameRole() {
     role: 'civilian',
     playerCount: 8,
     alivePlayers: 8,
+    gameRoles: {
+      mafia: ['player1', 'player3'],
+      detective: ['player2', 'player7'],
+      civilian: ['player4', 'player5', 'player6', 'player8'],
+    }
   });
   
   // Use a ref to ensure we only assign roles once
