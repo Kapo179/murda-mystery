@@ -53,7 +53,8 @@
           "locationAlwaysPermission": "This app uses your location to show you and other players on the map during gameplay.",
           "locationWhenInUsePermission": "This app uses your location to show you and other players on the map during gameplay."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
