@@ -1,7 +1,8 @@
-import { initializeApp } from '@react-native-firebase/app';
-import auth from '@react-native-firebase/auth';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Initialize Firebase
+// Your Firebase configuration
 const firebaseConfig = {
   // Your firebase config goes here
   // This should be filled with actual values from Firebase console
@@ -16,5 +17,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-export { app, auth }; 
+export { app, auth, db }; 
