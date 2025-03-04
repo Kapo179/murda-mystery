@@ -1,14 +1,182 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Dimensions, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Mapbox from '@rnmapbox/maps';
+import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { useLocation } from '@/hooks/useLocation';
-import { MAPBOX_ACCESS_TOKEN } from '@env';
 import Constants from 'expo-constants';
 import { Typography } from '@/components/Typography';
 
-// Custom dark theme style URL - you can create your own style in Mapbox Studio
-const CUSTOM_STYLE_URL = 'mapbox://styles/kapo179/custom-dark-style';
+// Dark mode map style
+const DARK_MAP_STYLE = [
+  {
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#212121"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#212121"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative.country",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#9e9e9e"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#bdbdbd"
+      }
+    ]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#181818"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#616161"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#1b1b1b"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.fill",
+    "stylers": [
+      {
+        "color": "#2c2c2c"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#8a8a8a"
+      }
+    ]
+  },
+  {
+    "featureType": "road.arterial",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#373737"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#3c3c3c"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway.controlled_access",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#4e4e4e"
+      }
+    ]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#616161"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#000000"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#3d3d3d"
+      }
+    ]
+  }
+];
 
 interface MapViewProps {
   showAllPlayers?: boolean;
@@ -20,20 +188,6 @@ export function CustomMapView(props: MapViewProps) {
   const { latitude, longitude, error, isLoading } = useLocation();
   const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0 });
   const isExpoGo = Constants.appOwnership === 'expo';
-
-  // Use the token from env
-  useEffect(() => {
-    try {
-      if (MAPBOX_ACCESS_TOKEN) {
-        console.log("Setting Mapbox access token");
-        Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-      } else {
-        console.error("Mapbox token is undefined");
-      }
-    } catch (err) {
-      console.error('Error initializing Mapbox:', err);
-    }
-  }, []);
 
   // Only set dimensions when we have valid numbers
   const onLayout = (event: any) => {
@@ -75,55 +229,45 @@ export function CustomMapView(props: MapViewProps) {
 
   return (
     <View style={styles.container} onLayout={onLayout}>
-      {mapDimensions.width > 0 && mapDimensions.height > 0 && (
+      {mapDimensions.width > 0 && mapDimensions.height > 0 && latitude && longitude && (
         <>
-          <Mapbox.MapView
+          <MapView
             style={{
               width: mapDimensions.width,
               height: mapDimensions.height,
             }}
-            styleURL={Mapbox.StyleURL.Dark}
-            zoomEnabled
-            scrollEnabled
+            provider={PROVIDER_GOOGLE}
+            customMapStyle={DARK_MAP_STYLE}
+            initialRegion={{
+              latitude,
+              longitude,
+              latitudeDelta: 0.005,
+              longitudeDelta: 0.005,
+            }}
+            showsUserLocation
+            followsUserLocation
+            showsMyLocationButton
+            showsCompass={false}
             rotateEnabled={false}
-            attributionEnabled={false}
-            logoEnabled={false}
-            compassEnabled={false}
-            scaleBarEnabled={false}
           >
-            <Mapbox.Camera
-              zoomLevel={15}
-              centerCoordinate={[longitude || -122.4324, latitude || 37.78825]}
-              animationMode="flyTo"
-              animationDuration={2000}
+            <Marker
+              coordinate={{
+                latitude,
+                longitude,
+              }}
             />
-            
-            <Mapbox.UserLocation
-              visible
-              animated
-            />
-
-            {/* Custom location marker */}
-            {latitude && longitude && (
-              <Mapbox.PointAnnotation
-                id="userLocation"
-                coordinate={[longitude, latitude]}
-              >
-                <View style={styles.locationMarker} />
-              </Mapbox.PointAnnotation>
-            )}
-          </Mapbox.MapView>
+          </MapView>
           
-          {/* Add a top gradient overlay for smooth transition */}
+          {/* Top gradient overlay */}
           <LinearGradient
-            colors={['rgba(0, 0, 0, 0.3)', 'transparent']}
+            colors={['rgba(0,0,0,0.6)', 'transparent']}
             style={styles.topGradient}
             pointerEvents="none"
           />
           
-          {/* Keep existing bottom gradient */}
+          {/* Bottom gradient overlay */}
           <LinearGradient
-            colors={['transparent', 'rgba(0, 0, 0, 0.8)']}
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
             style={styles.bottomGradient}
             pointerEvents="none"
           />
@@ -144,25 +288,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     marginHorizontal: 0,
     overflow: 'hidden',
-  },
-  map: {
-    flex: 1,
-  },
-  gradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 150,
-    zIndex: 1,
-  },
-  locationMarker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FF3131',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
@@ -197,11 +322,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     marginBottom: 8,
-  },
-  placeholderSubtext: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 16,
-    textAlign: 'center',
   },
   topGradient: {
     position: 'absolute',
