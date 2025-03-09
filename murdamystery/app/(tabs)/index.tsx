@@ -7,6 +7,7 @@ import { GameSetupSheet } from '@/components/sheets/GameSetupSheet';
 import { CoinInfoModal } from '@/components/modals/CoinInfoModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { TokenDisplay } from '@/components/tokens/TokenDisplay';
 
 // Define theme constants based on the design documentation
 const theme = {
@@ -33,21 +34,16 @@ export default function HomeScreen() {
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#F3F3F3';
   const textColor = colorScheme === 'dark' ? '#FFFFFF' : '#000000';
   
-  // Import the coin emoji asset
-  const coinEmoji = require('@/assets/images/emojis/assets/Coin/3D/coin_3d.png');
-  
   const [showInstructions, setShowInstructions] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [showCoinInfo, setShowCoinInfo] = useState(false);
-  
-  // Mock coin count - this would come from your state management
-  const coinCount = 3;
+  const [tokenBalance, setTokenBalance] = useState(0);
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
-      {/* Header with Play text and Coin Counter */}
+      {/* Header with Play text and Token Display */}
       <View style={styles.header}>
         <Text style={[
           styles.headerText, 
@@ -60,14 +56,13 @@ export default function HomeScreen() {
         </Text>
         
         <TouchableOpacity 
-          style={styles.coinCounter}
           onPress={() => setShowCoinInfo(true)}
+          activeOpacity={0.7}
         >
-          <Text style={styles.coinCountText}>{coinCount}</Text>
-          <Image 
-            source={coinEmoji} 
-            style={styles.coinImage} 
-            resizeMode="contain"
+          <TokenDisplay 
+            compact={true} 
+            showButtons={false}
+            onTokensChanged={setTokenBalance}
           />
         </TouchableOpacity>
       </View>
@@ -85,6 +80,14 @@ export default function HomeScreen() {
         theme={theme}
         colorScheme={colorScheme}
       />
+      
+      {/* Full token display section */}
+      <View style={styles.tokenSection}>
+        <TokenDisplay 
+          showButtons={true}
+          onTokensChanged={setTokenBalance}
+        />
+      </View>
       
       {/* Keep the modals */}
       <GameInstructionsModal 
@@ -136,22 +139,8 @@ const styles = StyleSheet.create({
     fontWeight: '500', // Medium weight
     // Using SF Pro Display on iOS by default, will fall back to system font
   },
-  coinCounter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(47, 46, 51, 0.8)', // #2F2E33 with opacity
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  coinCountText: {
-    color: '#FFFFFF',
-    fontSize: theme.typography.subheaderSize,
-    fontWeight: '500', // Medium
-    marginRight: 8,
-  },
-  coinImage: {
-    width: 28,
-    height: 28,
+  tokenSection: {
+    marginTop: 16,
+    paddingHorizontal: 8,
   },
 }); 

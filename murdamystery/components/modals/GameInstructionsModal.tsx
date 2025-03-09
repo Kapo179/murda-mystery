@@ -14,6 +14,7 @@ const cameraEmoji = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.p
 const locationEmoji = require('@/assets/images/emojis/assets/Round pushpin/3D/round_pushpin_3d.png');
 const meetingEmoji = require('@/assets/images/emojis/assets/Loudspeaker/3D/loudspeaker_3d.png');
 const ghostEmoji = require('@/assets/images/emojis/assets/Ghost/3D/ghost_3d.png');
+const stopEmoji = require('@/assets/images/emojis/assets/Prohibited/3D/prohibited_3d.png');
 
 interface GameInstructionsModalProps {
   visible: boolean;
@@ -61,8 +62,6 @@ export function GameInstructionsModal({ visible, onClose, onStartSetup }: GameIn
                   Catch the Mafia before they win
                 </Typography>
               </View>
-
-
             </View>
 
             {/* Game Mechanics */}
@@ -95,6 +94,16 @@ export function GameInstructionsModal({ visible, onClose, onStartSetup }: GameIn
                 <Image source={cameraEmoji} style={styles.emoji} />
                 <Typography style={styles.text}>
                   Civilians can photograph suspects
+                </Typography>
+              </View>
+            </View>
+
+            {/* Do Not Lie Instruction */}
+            <View style={styles.section}>
+              <View style={styles.instruction}>
+                <Image source={stopEmoji} style={styles.emoji} />
+                <Typography style={styles.text}>
+                  Do Not Lie or Deceive
                 </Typography>
               </View>
             </View>

@@ -12,6 +12,7 @@ import Animated, {
   withSequence, 
   withTiming, 
   withDelay,
+  withRepeat,
   Easing 
 } from 'react-native-reanimated';
 
@@ -28,6 +29,8 @@ const MAP_OFFSET_TOP = -0; // Move map upwards by this amount
 const TAGS_VERTICAL_OFFSET = -15; // How much the tags overlap with the card (increased)
 const TAG_HEIGHT = 50; // Height of the tags
 const GHOST_ANIMATION_INTERVAL = 5000; // Ghost shakes every 5 seconds
+const RISE_ANIMATION_DURATION = 4000; // Duration of rise animation
+const RISE_ANIMATION_DISTANCE = 10; // Distance to rise in pixels
 
 // Import emoji assets 
 const grinningEmoji = require('@/assets/images/emojis/assets/grinning-face-with-big-eyes/3d/grinning_face_with_big_eyes_3d.png');
@@ -73,14 +76,57 @@ export function MapViewWithGameCard({
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   
-  // Animation values - only for ghost now
+  // Animation values
   const ghostRotation = useSharedValue(0);
+  const ghostRiseY = useSharedValue(0);
+  const thinkingRiseY = useSharedValue(0);
   
   // Set map style based on theme
   const mapStyle = colorScheme === 'dark' ? darkMapStyle : [];
   
   // Background color based on theme
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#F3F3F3';
+  
+  // Setup continuous rising animation
+  useEffect(() => {
+    // Start with the emojis at neutral position
+    ghostRiseY.value = 0;
+    thinkingRiseY.value = 0;
+    
+    // Create a continuous rising animation that eases dramatically
+    ghostRiseY.value = withRepeat(
+      withTiming(-RISE_ANIMATION_DISTANCE, { 
+        duration: RISE_ANIMATION_DURATION,
+        easing: Easing.out(Easing.cubic) // Dramatic slow down at the end
+      }, () => {
+        // After rising, drop back down a bit faster
+        ghostRiseY.value = withTiming(0, { 
+          duration: RISE_ANIMATION_DURATION * 0.7,
+          easing: Easing.in(Easing.cubic) // Faster movement at the end
+        });
+      }),
+      -1, // Repeat infinitely
+      true // Reverse animation (though we're handling that manually)
+    );
+    
+    // Create slightly different animation for thinking emoji (offset timing)
+    thinkingRiseY.value = withDelay(
+      RISE_ANIMATION_DURATION / 2, // Start halfway through the ghost animation
+      withRepeat(
+        withTiming(-RISE_ANIMATION_DISTANCE * 0.7, { // Less rise distance
+          duration: RISE_ANIMATION_DURATION * 1.2, // Slightly slower
+          easing: Easing.out(Easing.cubic)
+        }, () => {
+          thinkingRiseY.value = withTiming(0, { 
+            duration: RISE_ANIMATION_DURATION * 0.8,
+            easing: Easing.in(Easing.cubic) 
+          });
+        }),
+        -1,
+        true
+      )
+    );
+  }, []);
   
   // Periodic ghost animation that triggers every 5 seconds
   useEffect(() => {
@@ -115,10 +161,22 @@ export function MapViewWithGameCard({
     return () => clearInterval(intervalId);
   }, []);
   
-  // Create animated style for ghost
+  // Create animated styles for ghost
   const ghostAnimatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ rotate: `${ghostRotation.value}deg` }]
+      transform: [
+        { rotate: `${ghostRotation.value}deg` },
+        { translateY: ghostRiseY.value } // Add vertical rise
+      ]
+    };
+  });
+  
+  // Create animated styles for thinking emoji
+  const thinkingAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: thinkingRiseY.value } // Add vertical rise
+      ]
     };
   });
   
@@ -262,10 +320,10 @@ export function MapViewWithGameCard({
               <Image source={ghostEmoji} style={styles.ghostEmoji} resizeMode="contain" />
             </Animated.View>
             
-            {/* Static Thinking Emoji - no animation */}
-            <View style={styles.thinkingContainer}>
+            {/* Animated Thinking Emoji */}
+            <Animated.View style={[styles.thinkingContainer, thinkingAnimatedStyle]}>
               <Image source={thinkingEmoji} style={styles.thinkingEmoji} resizeMode="contain" />
-            </View>
+            </Animated.View>
           </View>
         </View>
         
