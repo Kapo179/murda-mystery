@@ -1,13 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  Animated, 
-  Dimensions, 
-  Text,
-  ActivityIndicator
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, ActivityIndicator, Animated } from 'react-native';
 import { Typography } from './Typography';
 
 // Game tips to show during loading
@@ -26,36 +18,72 @@ const GAME_TIPS = [
 
 interface LoadingScreenProps {
   onFinishLoading: () => void;
-  minDisplayTime?: number; // Minimum time to show loading screen (ms)
 }
 
-export function LoadingScreen({ onFinishLoading, minDisplayTime = 3000 }: LoadingScreenProps) {
+export function LoadingScreen({ onFinishLoading }: LoadingScreenProps) {
+  const [progress, setProgress] = useState(0);
+  const [fadeAnim] = useState(new Animated.Value(1));
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const tipFadeAnim = React.useRef(new Animated.Value(1)).current;
-  const insets = useSafeAreaInsets();
   
-  // Simulate loading progress
+  // Simulate loading process
   useEffect(() => {
-    const startTime = Date.now();
+    let interval: NodeJS.Timeout;
     
-    // Fade in the loading screen
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-    
-    // Simulate loading progress
-    const interval = setInterval(() => {
-      setLoadingProgress(prev => {
-        const newProgress = prev + (Math.random() * 0.1);
-        return newProgress >= 1 ? 1 : newProgress;
+    // Fast initial progress
+    if (progress < 70) {
+      interval = setInterval(() => {
+        setProgress(prev => {
+          const next = prev + Math.random() * 10;
+          return next > 70 ? 70 : next;
+        });
+      }, 100);
+    } 
+    // Slow down near the end
+    else if (progress < 100) {
+      interval = setInterval(() => {
+        setProgress(prev => {
+          const next = prev + Math.random() * 5;
+          return next > 100 ? 100 : next;
+        });
+      }, 200);
+    } 
+    // When progress is complete
+    else {
+      // Clear any existing interval
+      clearInterval(interval);
+      
+      // Fade out animation
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        // Call onFinishLoading after animation completes
+        onFinishLoading();
       });
-    }, 200);
+      
+      return;
+    }
     
-    // Cycle through tips
+    return () => clearInterval(interval);
+  }, [progress, onFinishLoading, fadeAnim]);
+  
+  // Start the loading process in a separate effect
+  useEffect(() => {
+    // Ensure we start immediately
+    setProgress(1);
+    
+    // Set a safety timeout to ensure we eventually finish loading (10 seconds max)
+    const safetyTimeout = setTimeout(() => {
+      setProgress(100);
+    }, 10000);
+    
+    return () => clearTimeout(safetyTimeout);
+  }, []);
+
+  // Cycle through tips
+  useEffect(() => {
     const tipInterval = setInterval(() => {
       // Fade out current tip
       Animated.timing(tipFadeAnim, {
@@ -75,80 +103,34 @@ export function LoadingScreen({ onFinishLoading, minDisplayTime = 3000 }: Loadin
       });
     }, 4000);
     
-    // Clean up and finish loading
-    return () => {
-      clearInterval(interval);
-      clearInterval(tipInterval);
-      
-      // Ensure minimum display time
-      const elapsedTime = Date.now() - startTime;
-      if (elapsedTime < minDisplayTime) {
-        setTimeout(() => {
-          onFinishLoading();
-        }, minDisplayTime - elapsedTime);
-      } else {
-        onFinishLoading();
-      }
-    };
+    return () => clearInterval(tipInterval);
   }, []);
-  
-  // Once progress reaches 100%, fade out and trigger onFinishLoading
-  useEffect(() => {
-    if (loadingProgress >= 1) {
-      // Wait a moment at 100% before fading out
-      setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start(() => {
-          // Wait for fade out to complete
-          setTimeout(onFinishLoading, 100);
-        });
-      }, 300);
-    }
-  }, [loadingProgress]);
-  
+
   return (
-    <Animated.View 
-      style={[
-        styles.container,
-        { 
-          opacity: fadeAnim,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom 
-        }
-      ]}
-    >
-      <View style={styles.logoContainer}>
-        <Typography variant="title" style={styles.title}>
-          MURDA MYSTERY
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <View style={styles.content}>
+        <Typography variant="title" weight="bold" style={styles.title}>
+          Murda Mystery
         </Typography>
-      </View>
-      
-      <View style={styles.tipContainer}>
-        <Typography variant="caption" style={styles.tipHeader}>
-          TIP:
-        </Typography>
-        <Animated.View style={{ opacity: tipFadeAnim }}>
-          <Typography style={styles.tipText}>
-            {GAME_TIPS[currentTipIndex]}
+        
+        <View style={styles.tipContainer}>
+          <Typography variant="caption" style={styles.tipHeader}>
+            TIP:
           </Typography>
-        </Animated.View>
-      </View>
-      
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBarBackground}>
-          <Animated.View 
-            style={[
-              styles.progressBar,
-              { width: `${loadingProgress * 100}%` }
-            ]} 
-          />
+          <Animated.View style={{ opacity: tipFadeAnim }}>
+            <Typography style={styles.tipText}>
+              {GAME_TIPS[currentTipIndex]}
+            </Typography>
+          </Animated.View>
         </View>
-        <Typography style={styles.progressText}>
-          {Math.floor(loadingProgress * 100)}%
-        </Typography>
+        
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressBar, { width: `${progress}%` }]} />
+        </View>
+        
+        <Text style={styles.loadingText}>
+          {progress < 100 ? 'Loading...' : 'Ready!'}
+        </Text>
       </View>
     </Animated.View>
   );
@@ -157,21 +139,19 @@ export function LoadingScreen({ onFinishLoading, minDisplayTime = 3000 }: Loadin
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-  },
-  logoContainer: {
-    flex: 1,
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  content: {
+    alignItems: 'center',
+    width: '80%',
+  },
   title: {
+    color: '#FFFFFF',
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000',
-    letterSpacing: 1,
+    marginBottom: 40,
+    textAlign: 'center',
   },
   tipContainer: {
     padding: 20,
@@ -197,23 +177,19 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     width: '100%',
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  progressBarBackground: {
-    width: '100%',
-    height: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 3,
+    marginBottom: 16,
     overflow: 'hidden',
-    marginBottom: 8,
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#FF544E',
+    borderRadius: 3,
   },
-  progressText: {
-    fontSize: 14,
-    color: '#999',
+  loadingText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 16,
   },
 }); 

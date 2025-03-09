@@ -9,7 +9,8 @@ import {
   TextInput,
   Keyboard,
   TouchableWithoutFeedback,
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Animated, { 
@@ -24,6 +25,7 @@ import Animated, {
   Easing
 } from 'react-native-reanimated';
 import { PanGestureHandler } from 'react-native-gesture-handler';
+import { useRouter } from 'expo-router';
 
 // Import role emoji assets
 const mafiaEmoji = require('@/assets/images/emojis/assets/Ninja/Default/3D/ninja_3d_default.png');
@@ -54,10 +56,16 @@ export function GameSetupSheet({
   visible, 
   onClose 
 }: GameSetupSheetProps) {
+  const router = useRouter();
+  
   // State for animations
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const opacity = useSharedValue(0);
   const [isVisible, setIsVisible] = useState(visible);
+  
+  // Add loading states
+  const [creatingGame, setCreatingGame] = useState(false);
+  const [joiningGame, setJoiningGame] = useState(false);
   
   // Update local visibility state when prop changes
   useEffect(() => {
@@ -88,17 +96,70 @@ export function GameSetupSheet({
   // Join mode state
   const [gameCode, setGameCode] = useState('');
   
-  const handleCreateGame = () => {
-    console.log('Creating game with:', { 
-      mafiaCount, 
-      civilianCount
-    });
-    onClose();
+  const handleCreateGame = async () => {
+    try {
+      setCreatingGame(true);
+      
+      // Generate a random game code (in a real app, this would come from your backend)
+      const generatedGameCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      console.log('Creating game with:', { 
+        gameCode: generatedGameCode,
+        mafiaCount, 
+        civilianCount,
+        totalPlayers: mafiaCount + civilianCount
+      });
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Close the sheet
+      onClose();
+      
+      // Navigate to the lobby with the game configuration
+      router.push({
+        pathname: '/lobby',
+        params: {
+          gameCode: generatedGameCode,
+          mafiaCount: mafiaCount.toString(),
+          civilianCount: civilianCount.toString(),
+          isHost: 'true'
+        }
+      });
+    } catch (error) {
+      console.error('Error creating game:', error);
+    } finally {
+      setCreatingGame(false);
+    }
   };
   
-  const handleJoinGame = () => {
-    console.log('Joining game with code:', gameCode);
-    onClose();
+  const handleJoinGame = async () => {
+    if (!gameCode.trim()) return;
+    
+    try {
+      setJoiningGame(true);
+      
+      console.log('Joining game with code:', gameCode);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Close the sheet
+      onClose();
+      
+      // Navigate to the lobby with the game code
+      router.push({
+        pathname: '/lobby',
+        params: {
+          gameCode: gameCode.trim(),
+          isHost: 'false'
+        }
+      });
+    } catch (error) {
+      console.error('Error joining game:', error);
+    } finally {
+      setJoiningGame(false);
+    }
   };
   
   const dismissKeyboard = () => {
@@ -116,11 +177,17 @@ export function GameSetupSheet({
       ctx.startY = translateY.value;
     },
     onActive: (event, ctx) => {
+      // Prevent dragging when loading
+      if (creatingGame || joiningGame) return;
+      
       if (event.translationY > 0) { // Only allow dragging down
         translateY.value = ctx.startY + event.translationY;
       }
     },
     onEnd: (event) => {
+      // Prevent dismissing when loading
+      if (creatingGame || joiningGame) return;
+      
       if (event.translationY > DISMISS_THRESHOLD) {
         // Dismiss the sheet if dragged down past threshold with timing function
         translateY.value = withTiming(SCREEN_HEIGHT, { 
@@ -170,6 +237,9 @@ export function GameSetupSheet({
 
   // If not visible based on local state, don't render anything
   if (!isVisible) return null;
+  
+  // Disable dragging and closing while loading
+  const isLoading = creatingGame || joiningGame;
 
   return (
     <Modal
@@ -177,7 +247,7 @@ export function GameSetupSheet({
       transparent={true}
       animationType="none"
       statusBarTranslucent={true}
-      onRequestClose={onClose}
+      onRequestClose={() => !isLoading && onClose()}
     >
       <TouchableWithoutFeedback onPress={dismissKeyboard}>
         <View style={StyleSheet.absoluteFill}>
@@ -192,9 +262,10 @@ export function GameSetupSheet({
               <TouchableOpacity
                 style={styles.overlay}
                 activeOpacity={1}
-                onPress={onClose}
+                onPress={() => !isLoading && onClose()}
+                disabled={isLoading}
               >
-                <PanGestureHandler onGestureEvent={gestureHandler}>
+                <PanGestureHandler onGestureEvent={gestureHandler} enabled={!isLoading}>
                   <Animated.View
                     style={[styles.sheetContainer, sheetAnimatedStyle]}
                   >
@@ -216,7 +287,8 @@ export function GameSetupSheet({
                             styles.modeButton,
                             mode === 'host' && styles.modeButtonActive
                           ]}
-                          onPress={() => setMode('host')}
+                          onPress={() => !isLoading && setMode('host')}
+                          disabled={isLoading}
                         >
                           <Text style={[
                             styles.modeButtonText,
@@ -229,7 +301,8 @@ export function GameSetupSheet({
                             styles.modeButton,
                             mode === 'join' && styles.modeButtonActive
                           ]}
-                          onPress={() => setMode('join')}
+                          onPress={() => !isLoading && setMode('join')}
+                          disabled={isLoading}
                         >
                           <Text style={[
                             styles.modeButtonText,
@@ -251,7 +324,8 @@ export function GameSetupSheet({
                             <View style={styles.counterContainer}>
                               <TouchableOpacity 
                                 style={styles.counterButton}
-                                onPress={() => setMafiaCount(Math.max(1, mafiaCount - 1))}
+                                onPress={() => !isLoading && setMafiaCount(Math.max(1, mafiaCount - 1))}
+                                disabled={isLoading}
                               >
                                 <Text style={styles.counterButtonText}>-</Text>
                               </TouchableOpacity>
@@ -260,7 +334,8 @@ export function GameSetupSheet({
                               
                               <TouchableOpacity 
                                 style={styles.counterButton}
-                                onPress={() => setMafiaCount(Math.min(5, mafiaCount + 1))}
+                                onPress={() => !isLoading && setMafiaCount(Math.min(5, mafiaCount + 1))}
+                                disabled={isLoading}
                               >
                                 <Text style={styles.counterButtonText}>+</Text>
                               </TouchableOpacity>
@@ -277,7 +352,8 @@ export function GameSetupSheet({
                             <View style={styles.counterContainer}>
                               <TouchableOpacity 
                                 style={styles.counterButton}
-                                onPress={() => setCivilianCount(Math.max(3, civilianCount - 1))}
+                                onPress={() => !isLoading && setCivilianCount(Math.max(3, civilianCount - 1))}
+                                disabled={isLoading}
                               >
                                 <Text style={styles.counterButtonText}>-</Text>
                               </TouchableOpacity>
@@ -286,7 +362,8 @@ export function GameSetupSheet({
                               
                               <TouchableOpacity 
                                 style={styles.counterButton}
-                                onPress={() => setCivilianCount(Math.min(14, civilianCount + 1))}
+                                onPress={() => !isLoading && setCivilianCount(Math.min(14, civilianCount + 1))}
+                                disabled={isLoading}
                               >
                                 <Text style={styles.counterButtonText}>+</Text>
                               </TouchableOpacity>
@@ -306,16 +383,25 @@ export function GameSetupSheet({
                               style={styles.cancelButton}
                               onPress={onClose}
                               activeOpacity={0.9}
+                              disabled={isLoading}
                             >
                               <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                              style={styles.createButton}
+                              style={[
+                                styles.createButton,
+                                creatingGame && styles.loadingButton
+                              ]}
                               onPress={handleCreateGame}
                               activeOpacity={0.9}
+                              disabled={isLoading}
                             >
-                              <Text style={styles.createButtonText}>Create Game</Text>
+                              {creatingGame ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                              ) : (
+                                <Text style={styles.createButtonText}>Create Game</Text>
+                              )}
                             </TouchableOpacity>
                           </View>
                         </>
@@ -337,10 +423,11 @@ export function GameSetupSheet({
                                 placeholder="Enter game code"
                                 placeholderTextColor="#999999"
                                 value={gameCode}
-                                onChangeText={setGameCode}
+                                onChangeText={!isLoading ? setGameCode : undefined}
                                 autoCapitalize="characters"
                                 autoCorrect={false}
                                 maxLength={6}
+                                editable={!isLoading}
                               />
                             </View>
                             
@@ -355,6 +442,7 @@ export function GameSetupSheet({
                               style={styles.cancelButton}
                               onPress={onClose}
                               activeOpacity={0.9}
+                              disabled={isLoading}
                             >
                               <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
@@ -362,13 +450,17 @@ export function GameSetupSheet({
                             <TouchableOpacity 
                               style={[
                                 styles.createButton,
-                                !gameCode.trim() && styles.disabledButton
+                                (!gameCode.trim() || joiningGame) && styles.disabledButton
                               ]}
                               onPress={handleJoinGame}
-                              disabled={!gameCode.trim()}
+                              disabled={!gameCode.trim() || isLoading}
                               activeOpacity={0.9}
                             >
-                              <Text style={styles.createButtonText}>Join Game</Text>
+                              {joiningGame ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                              ) : (
+                                <Text style={styles.createButtonText}>Join Game</Text>
+                              )}
                             </TouchableOpacity>
                           </View>
                         </>
@@ -418,7 +510,7 @@ const styles = StyleSheet.create({
   modeSelector: {
     flexDirection: 'row',
     backgroundColor: '#2C2C2E',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 4,
     marginBottom: 24,
   },
@@ -548,5 +640,8 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: 'rgba(255, 49, 49, 0.5)',
+  },
+  loadingButton: {
+    backgroundColor: '#FF544E',
   },
 }); 
