@@ -78,7 +78,10 @@ export default function HomeScreen() {
           setShowInstructions(true);
         }}
         onOpenCoinInfo={() => setShowCoinInfo(true)}
-        onPlay={() => console.log("Play button pressed")}
+        onPlay={() => {
+          console.log("Play button pressed, opening game setup sheet");
+          setShowSetup(true);
+        }}
         theme={theme}
         colorScheme={colorScheme}
       />

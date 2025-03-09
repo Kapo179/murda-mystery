@@ -24,7 +24,7 @@ const CARD_HEIGHT = 320;
 const MAP_WIDTH = 363;
 const MAP_HEIGHT = 300; // Increased from 251 to give more map space
 const STATUS_BAR_HEIGHT = 61;
-const MAP_OFFSET_TOP = -15; // Move map upwards by this amount
+const MAP_OFFSET_TOP = -0; // Move map upwards by this amount
 const TAGS_VERTICAL_OFFSET = -15; // How much the tags overlap with the card (increased)
 const TAG_HEIGHT = 50; // Height of the tags
 const GHOST_ANIMATION_INTERVAL = 5000; // Ghost shakes every 5 seconds
@@ -200,6 +200,7 @@ export function MapViewWithGameCard({
     }
     
     if (onPlay) {
+      console.log("Calling onPlay from Play button");
       onPlay();
     }
   };

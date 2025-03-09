@@ -66,6 +66,17 @@ export function GameCard({
   
   // Select the appropriate banner based on theme
   const bannerSource = colorScheme === 'dark' ? bannerDark : bannerLight;
+
+  // Separate handler for info button click - with event stop propagation
+  const handleInfoButtonPress = (e: any) => {
+    // Stop event propagation to prevent the card's onPress from firing
+    e.stopPropagation();
+    
+    console.log('Info button clicked explicitly');
+    if (onPress) {
+      onPress();
+    }
+  };
   
   return (
     <TouchableOpacity
@@ -90,14 +101,12 @@ export function GameCard({
               <Text style={styles.subtitle}>GPS-Game</Text>
             </View>
             
+            {/* Make the info button a standalone touchable with its own onPress handler */}
             <TouchableOpacity 
-              onPress={() => {
-                console.log('Info button clicked');
-                if (onPress) {
-                  onPress();
-                }
-              }}
-              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={styles.infoButtonContainer}
+              onPress={handleInfoButtonPress}
+              activeOpacity={0.6}
+              hitSlop={{ top: 15, right: 15, bottom: 15, left: 15 }}
             >
               <Animated.View style={animatedStyle}>
                 <Text style={styles.infoButtonText}>!</Text>
@@ -163,6 +172,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500', // Medium
     marginTop: 4,
+  },
+  infoButtonContainer: {
+    zIndex: 10, // Higher z-index to ensure it's clickable
   },
   infoButtonText: {
     color: '#FFFFFF',
