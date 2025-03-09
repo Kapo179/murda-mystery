@@ -1,20 +1,19 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Modal, Image } from 'react-native';
+import { 
+  Modal, 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Image, 
+  ScrollView,
+  useWindowDimensions,
+  Platform
+} from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Typography } from '../Typography';
-import Animated, { 
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
-
-// Import emoji assets
-const ninjaEmoji = require('@/assets/images/emojis/assets/Ninja/Default/3D/ninja_3d_default.png');
-const detectiveEmoji = require('@/assets/images/emojis/assets/Detective/Default/3D/detective_3d_default.png');
-const cameraEmoji = require('@/assets/images/emojis/assets/Camera/3D/camera_3d.png');
-const locationEmoji = require('@/assets/images/emojis/assets/Round pushpin/3D/round_pushpin_3d.png');
-const meetingEmoji = require('@/assets/images/emojis/assets/Loudspeaker/3D/loudspeaker_3d.png');
-const ghostEmoji = require('@/assets/images/emojis/assets/Ghost/3D/ghost_3d.png');
-const stopEmoji = require('@/assets/images/emojis/assets/Prohibited/3D/prohibited_3d.png');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { EMOJI_PATHS } from '@/constants/AssetPaths';
 
 interface GameInstructionsModalProps {
   visible: boolean;
@@ -22,157 +21,290 @@ interface GameInstructionsModalProps {
   onStartSetup: () => void;
 }
 
-export function GameInstructionsModal({ visible, onClose, onStartSetup }: GameInstructionsModalProps) {
-  const handleContinue = () => {
-    // Close this modal first to prevent gesture conflicts
-    onClose();
-    // Small delay to ensure the modal is properly closed before opening the sheet
-    setTimeout(() => {
-      onStartSetup();
-    }, 100);
-  };
-
+export function GameInstructionsModal({ 
+  visible, 
+  onClose,
+  onStartSetup 
+}: GameInstructionsModalProps) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme() ?? 'dark';
+  
+  const isDark = colorScheme === 'dark';
+  const textColor = isDark ? '#FFFFFF' : '#000000';
+  const backgroundColor = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+  const modalBgColor = isDark ? '#1A1A1A' : '#FFFFFF';
+  
+  // Calculate modal dimensions based on screen size
+  const modalWidth = Math.min(width * 0.9, 500);
+  const modalHeight = Math.min(height * 0.8, 700);
+  
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={true}
       animationType="fade"
-      statusBarTranslucent
+      onRequestClose={onClose}
     >
-      <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark">
-        <TouchableOpacity 
-          style={styles.overlay} 
-          activeOpacity={1} 
-          onPress={onClose}
+      <BlurView
+        intensity={95}
+        tint={isDark ? 'dark' : 'light'}
+        style={[
+          styles.blurContainer,
+          { paddingTop: insets.top, paddingBottom: insets.bottom }
+        ]}
+      >
+        <View 
+          style={[
+            styles.modalContainer, 
+            { 
+              backgroundColor: modalBgColor,
+              width: modalWidth,
+              maxHeight: modalHeight
+            }
+          ]}
         >
-          <Animated.View 
-            entering={SlideInDown.springify().damping(15)}
-            exiting={SlideOutDown.springify().damping(15)}
-            style={styles.content}
+          {/* Modal Header */}
+          <View style={styles.headerContainer}>
+            <Text style={[styles.headerText, { color: textColor }]}>
+              Game Instructions
+            </Text>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={onClose}
+            >
+              <Text style={[styles.closeButtonText, { color: textColor }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Modal Content */}
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
           >
-            <Typography variant="title" weight="bold" style={styles.title}>
-              How To Play
-            </Typography>
-
             {/* Role Instructions */}
             <View style={styles.section}>
-              <View style={styles.instruction}>
-                <Image source={ninjaEmoji} style={styles.emoji} />
-                <Typography style={styles.text}>
-                  Catch the Mafia before they win
-                </Typography>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>
+                Role Instructions
+              </Text>
+              
+              <View style={styles.instructionItem}>
+                <Image 
+                  source={{ uri: EMOJI_PATHS.SKULL }}
+                  style={styles.emoji}
+                  resizeMode="contain"
+                />
+                <View style={styles.instructionText}>
+                  <Text style={[styles.instructionTitle, { color: textColor }]}>
+                    Murderer
+                  </Text>
+                  <Text style={[styles.instructionDescription, { color: isDark ? '#CCCCCC' : '#555555' }]}>
+                    Your goal is to eliminate all players without being caught.
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.instructionItem}>
+                <Image 
+                  source={{ uri: EMOJI_PATHS.SLEUTH }}
+                  style={styles.emoji}
+                  resizeMode="contain"
+                />
+                <View style={styles.instructionText}>
+                  <Text style={[styles.instructionTitle, { color: textColor }]}>
+                    Detective
+                  </Text>
+                  <Text style={[styles.instructionDescription, { color: isDark ? '#CCCCCC' : '#555555' }]}>
+                    Find evidence and identify the murderer before it's too late.
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.instructionItem}>
+                <Image 
+                  source={{ uri: EMOJI_PATHS.GHOST }}
+                  style={styles.emoji}
+                  resizeMode="contain"
+                />
+                <View style={styles.instructionText}>
+                  <Text style={[styles.instructionTitle, { color: textColor }]}>
+                    Civilian
+                  </Text>
+                  <Text style={[styles.instructionDescription, { color: isDark ? '#CCCCCC' : '#555555' }]}>
+                    Stay alive and help the detectives identify the murderer.
+                  </Text>
+                </View>
               </View>
             </View>
-
+            
             {/* Game Mechanics */}
             <View style={styles.section}>
-              <View style={styles.instruction}>
-                <Image source={meetingEmoji} style={styles.emoji} />
-                <Typography style={styles.text}>
-                  Each player gets 1 emergency meeting
-                </Typography>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>
+                Game Mechanics
+              </Text>
+              
+              <View style={styles.instructionItem}>
+                <Image 
+                  source={{ uri: EMOJI_PATHS.KNIFE }}
+                  style={styles.emoji}
+                  resizeMode="contain"
+                />
+                <View style={styles.instructionText}>
+                  <Text style={[styles.instructionTitle, { color: textColor }]}>
+                    Proximity Kills
+                  </Text>
+                  <Text style={[styles.instructionDescription, { color: isDark ? '#CCCCCC' : '#555555' }]}>
+                    Murderers must be near their victims to eliminate them.
+                  </Text>
+                </View>
               </View>
-
-              <View style={styles.instruction}>
-                <Image source={ghostEmoji} style={styles.emoji} />
-                <Typography style={styles.text}>
-                  Dead players can't join meetings
-                </Typography>
+              
+              <View style={styles.instructionItem}>
+                <Image 
+                  source={{ uri: EMOJI_PATHS.MAGNIFIER }}
+                  style={styles.emoji}
+                  resizeMode="contain"
+                />
+                <View style={styles.instructionText}>
+                  <Text style={[styles.instructionTitle, { color: textColor }]}>
+                    Evidence Collection
+                  </Text>
+                  <Text style={[styles.instructionDescription, { color: isDark ? '#CCCCCC' : '#555555' }]}>
+                    Detectives can collect evidence when near a crime scene.
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.instructionItem}>
+                <Image 
+                  source={{ uri: EMOJI_PATHS.PROHIBITED }}
+                  style={styles.emoji}
+                  resizeMode="contain"
+                />
+                <View style={styles.instructionText}>
+                  <Text style={[styles.instructionTitle, { color: textColor }]}>
+                    Do not lie about your role
+                  </Text>
+                  <Text style={[styles.instructionDescription, { color: isDark ? '#CCCCCC' : '#555555' }]}>
+                    Players must be honest about their assigned role during gameplay.
+                  </Text>
+                </View>
               </View>
             </View>
-
-            {/* Evidence System */}
-            <View style={styles.section}>
-              <View style={styles.instruction}>
-                <Image source={cameraEmoji} style={styles.emoji} />
-                <Typography style={styles.text}>
-                  Mafia must photograph their victims
-                </Typography>
-              </View>
-
-              <View style={styles.instruction}>
-                <Image source={cameraEmoji} style={styles.emoji} />
-                <Typography style={styles.text}>
-                  Civilians can photograph suspects
-                </Typography>
-              </View>
-            </View>
-
-            {/* Do Not Lie Instruction */}
-            <View style={styles.section}>
-              <View style={styles.instruction}>
-                <Image source={stopEmoji} style={styles.emoji} />
-                <Typography style={styles.text}>
-                  Do Not Lie or Deceive
-                </Typography>
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.button}
-              onPress={handleContinue}
+          </ScrollView>
+          
+          {/* Continue button */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.continueButton}
+              onPress={onStartSetup}
             >
-              <Typography variant="label" weight="bold" style={styles.buttonText}>
+              <Text style={styles.continueButtonText}>
                 Continue
-              </Typography>
+              </Text>
             </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
+          </View>
+        </View>
       </BlurView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  blurContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128, 128, 128, 0.3)',
+  },
+  headerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  scrollView: {
+    maxHeight: 500,
+  },
+  contentContainer: {
     padding: 20,
   },
-  content: {
-    backgroundColor: 'rgba(28, 28, 30, 0.95)',
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    gap: 24,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
   section: {
-    gap: 16,
+    marginBottom: 24,
   },
-  instruction: {
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  instructionItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 12,
-    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: 'flex-start',
   },
   emoji: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
+    marginRight: 16,
   },
-  text: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 15,
+  instructionText: {
     flex: 1,
   },
-  button: {
-    backgroundColor: '#FF3131',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  instructionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  buttonText: {
+  instructionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  buttonContainer: {
+    padding: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(128, 128, 128, 0.3)',
+  },
+  continueButton: {
+    backgroundColor: '#FF5E3A',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  continueButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

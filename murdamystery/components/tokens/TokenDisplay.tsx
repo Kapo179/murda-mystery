@@ -5,13 +5,15 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Alert 
+  Alert,
+  Image
 } from 'react-native';
 import { useTokens } from '@/hooks/useTokens';
 import { formatDistanceToNow } from 'date-fns';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { EMOJI_PATHS } from '@/constants/AssetPaths';
 
 interface TokenDisplayProps {
   showButtons?: boolean;
@@ -110,17 +112,19 @@ export const TokenDisplay: React.FC<TokenDisplayProps> = ({
   if (compact) {
     return (
       <View style={styles.compactContainer}>
-        <MaterialCommunityIcons 
-          name="coins" 
-          size={20} 
-          color={isDark ? Colors.gold : Colors.darkGold} 
-        />
         {isLoading ? (
           <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} style={{ marginLeft: 8 }} />
         ) : (
-          <Text style={[styles.compactBalance, { color: isDark ? '#fff' : '#000' }]}>
-            {balance}
-          </Text>
+          <>
+            <Image 
+              source={{ uri: EMOJI_PATHS.COIN }} 
+              style={styles.coinImageCompact} 
+              resizeMode="contain"
+            />
+            <Text style={[styles.compactBalance, { color: isDark ? '#fff' : '#000' }]}>
+              {balance}
+            </Text>
+          </>
         )}
       </View>
     );
@@ -129,10 +133,10 @@ export const TokenDisplay: React.FC<TokenDisplayProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#1A1A1A' : '#F0F0F0' }]}>
       <View style={styles.balanceContainer}>
-        <MaterialCommunityIcons 
-          name="coins" 
-          size={24} 
-          color={isDark ? Colors.gold : Colors.darkGold} 
+        <Image 
+          source={{ uri: EMOJI_PATHS.COIN }} 
+          style={styles.coinImage} 
+          resizeMode="contain"
         />
         
         {isLoading ? (
@@ -252,5 +256,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 6,
     fontSize: 14,
+  },
+  coinImage: {
+    width: 28,
+    height: 28,
+  },
+  coinImageCompact: {
+    width: 24,
+    height: 24,
   },
 }); 

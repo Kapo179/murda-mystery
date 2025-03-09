@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KillCamRecorder } from '@/components/killcam/KillCamRecorder';
 import { KillCamGallery } from '@/components/killcam/KillCamGallery';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { UI_ASSETS } from '@/constants/AssetPaths';
 
 export default function KillCamScreen() {
   const colorScheme = useColorScheme() ?? 'dark';

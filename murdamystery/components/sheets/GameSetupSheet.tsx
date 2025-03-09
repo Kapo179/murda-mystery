@@ -13,7 +13,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import Animated, { 
+import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedGestureHandler,
@@ -57,7 +57,7 @@ export function GameSetupSheet({
   onClose 
 }: GameSetupSheetProps) {
   const router = useRouter();
-  
+
   // State for animations
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const opacity = useSharedValue(0);
@@ -85,7 +85,7 @@ export function GameSetupSheet({
       });
     }
   }, [visible]);
-  
+
   // Mode selection (host or join)
   const [mode, setMode] = useState<SetupMode>('host');
   
@@ -145,7 +145,7 @@ export function GameSetupSheet({
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Close the sheet
-      onClose();
+    onClose();
       
       // Navigate to the lobby with the game code
       router.push({
@@ -319,57 +319,57 @@ export function GameSetupSheet({
                             <View style={styles.sectionHeader}>
                               <Image source={mafiaEmoji} style={styles.roleEmoji} />
                               <Text style={styles.sectionTitle}>Mafia</Text>
-                            </View>
+                </View>
                             
                             <View style={styles.counterContainer}>
-                              <TouchableOpacity 
-                                style={styles.counterButton}
+                  <TouchableOpacity 
+                    style={styles.counterButton}
                                 onPress={() => !isLoading && setMafiaCount(Math.max(1, mafiaCount - 1))}
                                 disabled={isLoading}
-                              >
+                  >
                                 <Text style={styles.counterButtonText}>-</Text>
-                              </TouchableOpacity>
+                  </TouchableOpacity>
                               
                               <Text style={styles.counterValue}>{mafiaCount}</Text>
                               
-                              <TouchableOpacity 
-                                style={styles.counterButton}
+                  <TouchableOpacity 
+                    style={styles.counterButton}
                                 onPress={() => !isLoading && setMafiaCount(Math.min(5, mafiaCount + 1))}
                                 disabled={isLoading}
-                              >
+                  >
                                 <Text style={styles.counterButtonText}>+</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                          
+                  </TouchableOpacity>
+                </View>
+              </View>
+
                           {/* Civilian Count Selector */}
                           <View style={styles.sectionContainer}>
                             <View style={styles.sectionHeader}>
                               <Image source={civilianEmoji} style={styles.roleEmoji} />
                               <Text style={styles.sectionTitle}>Civilians</Text>
-                            </View>
+                </View>
                             
                             <View style={styles.counterContainer}>
-                              <TouchableOpacity 
-                                style={styles.counterButton}
+                  <TouchableOpacity 
+                    style={styles.counterButton}
                                 onPress={() => !isLoading && setCivilianCount(Math.max(3, civilianCount - 1))}
                                 disabled={isLoading}
-                              >
+                  >
                                 <Text style={styles.counterButtonText}>-</Text>
-                              </TouchableOpacity>
+                  </TouchableOpacity>
                               
                               <Text style={styles.counterValue}>{civilianCount}</Text>
                               
-                              <TouchableOpacity 
-                                style={styles.counterButton}
+                  <TouchableOpacity 
+                    style={styles.counterButton}
                                 onPress={() => !isLoading && setCivilianCount(Math.min(14, civilianCount + 1))}
                                 disabled={isLoading}
-                              >
+                  >
                                 <Text style={styles.counterButtonText}>+</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                          
+                  </TouchableOpacity>
+                </View>
+              </View>
+
                           {/* Total Players Info */}
                           <View style={styles.totalPlayersContainer}>
                             <Text style={styles.totalPlayersText}>
@@ -379,7 +379,7 @@ export function GameSetupSheet({
                           
                           {/* Host Action Buttons */}
                           <View style={styles.buttonContainer}>
-                            <TouchableOpacity 
+              <TouchableOpacity 
                               style={styles.cancelButton}
                               onPress={onClose}
                               activeOpacity={0.9}
@@ -389,7 +389,7 @@ export function GameSetupSheet({
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                              style={[
+                  style={[
                                 styles.createButton,
                                 creatingGame && styles.loadingButton
                               ]}
@@ -402,8 +402,8 @@ export function GameSetupSheet({
                               ) : (
                                 <Text style={styles.createButtonText}>Create Game</Text>
                               )}
-                            </TouchableOpacity>
-                          </View>
+              </TouchableOpacity>
+            </View>
                         </>
                       )}
                       
@@ -438,16 +438,16 @@ export function GameSetupSheet({
                           
                           {/* Join Action Buttons */}
                           <View style={styles.buttonContainer}>
-                            <TouchableOpacity 
+              <TouchableOpacity 
                               style={styles.cancelButton}
-                              onPress={onClose}
+                onPress={onClose}
                               activeOpacity={0.9}
                               disabled={isLoading}
                             >
                               <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            
-                            <TouchableOpacity 
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
                               style={[
                                 styles.createButton,
                                 (!gameCode.trim() || joiningGame) && styles.disabledButton
@@ -470,8 +470,8 @@ export function GameSetupSheet({
                 </PanGestureHandler>
               </TouchableOpacity>
             </BlurView>
-          </Animated.View>
-        </View>
+        </Animated.View>
+    </View>
       </TouchableWithoutFeedback>
     </Modal>
   );

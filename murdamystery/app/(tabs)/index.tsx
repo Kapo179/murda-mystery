@@ -8,6 +8,7 @@ import { CoinInfoModal } from '@/components/modals/CoinInfoModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { TokenDisplay } from '@/components/tokens/TokenDisplay';
+import { EMOJI_PATHS } from '@/constants/AssetPaths';
 
 // Define theme constants based on the design documentation
 const theme = {

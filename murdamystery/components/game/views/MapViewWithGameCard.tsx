@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Alert, Image } from 'react-native';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Alert, Image, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useLocation } from '@/hooks/useLocation';
 import { GameCard } from '@/components/home/GameCard';
@@ -15,6 +15,9 @@ import Animated, {
   withRepeat,
   Easing 
 } from 'react-native-reanimated';
+import { CustomMapView } from '@/components/game/MapView';
+import { LinearGradient } from 'expo-linear-gradient';
+import { EMOJI_PATHS } from '@/constants/AssetPaths';
 
 // Get screen width for proper scaling
 const { width: screenWidth } = Dimensions.get('window');
@@ -39,25 +42,39 @@ const coinEmoji = require('@/assets/images/emojis/assets/Coin/3D/coin_3d.png');
 const ghostEmoji = require('@/assets/images/ghost.png');
 const thinkingEmoji = require('@/assets/images/thinking.png');
 
+interface Tag {
+  id: string;
+  label: string;
+  color?: string;
+}
+
+const MOCK_TAGS: Tag[] = [
+  { id: '1', label: 'Located near you', color: '#FF9500' },
+  { id: '2', label: '5+ players', color: '#32D74B' },
+  { id: '3', label: 'Starts in 2 min', color: '#FF2D55' },
+];
+
+interface ThemeOptions {
+  borderRadius: number;
+  typography: {
+    headerSize: number;
+    subheaderSize: number;
+  };
+  colors: {
+    gradientStart: string;
+    gradientEnd: string;
+    infoTagBackground: string;
+    enabledStatus: string;
+    disabledStatus: string;
+    coinBackground: string;
+  };
+}
+
 interface MapViewWithGameCardProps {
   onOpenInstructions?: () => void;
   onOpenCoinInfo?: () => void;
   onPlay?: () => void;
-  theme: {
-    borderRadius: number;
-    typography: {
-      headerSize: number;
-      subheaderSize: number;
-    };
-    colors: {
-      gradientStart: string;
-      gradientEnd: string;
-      infoTagBackground: string;
-      enabledStatus: string;
-      disabledStatus: string;
-      coinBackground: string;
-    }
-  };
+  theme: ThemeOptions;
   colorScheme: 'light' | 'dark';
 }
 
