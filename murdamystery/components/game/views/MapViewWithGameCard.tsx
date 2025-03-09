@@ -1,480 +1,760 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { StyleSheet, View, Dimensions, Text, Image, TouchableOpacity, Alert } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Alert, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useLocation } from '@/hooks/useLocation';
 import { GameCard } from '@/components/home/GameCard';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FeaturePill } from '@/components/home/FeaturePill';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { Camera } from 'expo-camera';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSequence, 
+  withTiming, 
+  withDelay,
+  Easing 
+} from 'react-native-reanimated';
 
-const { height, width } = Dimensions.get('window');
+// Get screen width for proper scaling
+const { width: screenWidth } = Dimensions.get('window');
 
-// Import emoji assets
+// Define exact dimensions from design
+const CARD_WIDTH = 363;
+const CARD_HEIGHT = 320;
+const MAP_WIDTH = 363;
+const MAP_HEIGHT = 300; // Increased from 251 to give more map space
+const STATUS_BAR_HEIGHT = 61;
+const MAP_OFFSET_TOP = -15; // Move map upwards by this amount
+const TAGS_VERTICAL_OFFSET = -15; // How much the tags overlap with the card (increased)
+const TAG_HEIGHT = 50; // Height of the tags
+const GHOST_ANIMATION_INTERVAL = 5000; // Ghost shakes every 5 seconds
+
+// Import emoji assets 
 const grinningEmoji = require('@/assets/images/emojis/assets/grinning-face-with-big-eyes/3d/grinning_face_with_big_eyes_3d.png');
 const globeEmoji = require('@/assets/images/emojis/assets/globe-showing-americas/3d/globe_showing_americas_3d.png');
 const coinEmoji = require('@/assets/images/emojis/assets/Coin/3D/coin_3d.png');
-const settingsEmoji = require('@/assets/images/emojis/assets/Gear/3D/gear_3d.png');
-const exitEmoji = require('@/assets/images/emojis/assets/Person running/Default/3D/person_running_3d_default.png');
-
-// Global capital cities for animation
-const GLOBAL_CAPITALS = [
-  { latitude: 40.7128, longitude: -74.0060, name: "New York" },       // New York
-  { latitude: 51.5074, longitude: -0.1278, name: "London" },          // London
-  { latitude: 35.6762, longitude: 139.6503, name: "Tokyo" },          // Tokyo
-  { latitude: 48.8566, longitude: 2.3522, name: "Paris" },            // Paris
-  { latitude: -33.8688, longitude: 151.2093, name: "Sydney" },        // Sydney
-  { latitude: 41.9028, longitude: 12.4964, name: "Rome" },            // Rome
-  { latitude: 30.0444, longitude: 31.2357, name: "Cairo" },           // Cairo
-  { latitude: -22.9068, longitude: -43.1729, name: "Rio de Janeiro" },// Rio
-  { latitude: 55.7558, longitude: 37.6173, name: "Moscow" },          // Moscow
-  { latitude: 39.9042, longitude: 116.4074, name: "Beijing" },        // Beijing
-];
+const ghostEmoji = require('@/assets/images/ghost.png');
+const thinkingEmoji = require('@/assets/images/thinking.png');
 
 interface MapViewWithGameCardProps {
   onOpenInstructions?: () => void;
   onOpenCoinInfo?: () => void;
+  onPlay?: () => void;
+  theme: {
+    borderRadius: number;
+    typography: {
+      headerSize: number;
+      subheaderSize: number;
+    };
+    colors: {
+      gradientStart: string;
+      gradientEnd: string;
+      infoTagBackground: string;
+      enabledStatus: string;
+      disabledStatus: string;
+      coinBackground: string;
+    }
+  };
+  colorScheme: 'light' | 'dark';
 }
 
 export function MapViewWithGameCard({ 
   onOpenInstructions,
-  onOpenCoinInfo
+  onOpenCoinInfo,
+  onPlay,
+  theme,
+  colorScheme
 }: MapViewWithGameCardProps) {
-  const { location } = useLocation();
-  const router = useRouter();
+  // Get user's location from the hook
+  const { latitude, longitude, isLoading } = useLocation();
   const mapRef = useRef<MapView>(null);
-  const [locationName, setLocationName] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const locationIndex = useRef(0);
-  const animationTimer = useRef<NodeJS.Timeout | null>(null);
-  const [settingsVisible, setSettingsVisible] = useState(false);
-
-  // Set initial location
+  
+  // Permission states
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [cameraEnabled, setCameraEnabled] = useState(false);
+  
+  // Animation values - only for ghost now
+  const ghostRotation = useSharedValue(0);
+  
+  // Set map style based on theme
+  const mapStyle = colorScheme === 'dark' ? darkMapStyle : [];
+  
+  // Background color based on theme
+  const backgroundColor = colorScheme === 'dark' ? '#000000' : '#F3F3F3';
+  
+  // Periodic ghost animation that triggers every 5 seconds
   useEffect(() => {
-    if (mapRef.current && mapReady) {
-      // First show user location if available
-      if (location) {
-        mapRef.current.animateToRegion({
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }, 1000);
-        
-        // Get the user's location name
-        fetchLocationName(location.latitude, location.longitude);
-      }
+    // Function to trigger ghost shake animation
+    const triggerGhostShake = () => {
+      // Reset to 0 first to ensure consistent animation
+      ghostRotation.value = 0;
       
-      // After 3 seconds, start the global capitals animation sequence
-      setTimeout(() => {
-        setLocationName("Explore Global Cities");
-        animateToNextCapital();
-      }, 3000);
-    }
-  }, [mapReady, location]);
-
-  // Clean up timer when component unmounts
-  useEffect(() => {
-    return () => {
-      if (animationTimer.current) {
-        clearTimeout(animationTimer.current);
-      }
+      // Create a sequence that shakes the ghost for a short time
+      ghostRotation.value = withSequence(
+        // Wait for a short delay to ensure value is reset
+        withDelay(100, 
+          // Shake sequence: left, right, left, right, back to center
+          withSequence(
+            withTiming(-5, { duration: 250, easing: Easing.inOut(Easing.quad) }),
+            withTiming(5, { duration: 250, easing: Easing.inOut(Easing.quad) }),
+            withTiming(-5, { duration: 250, easing: Easing.inOut(Easing.quad) }),
+            withTiming(5, { duration: 250, easing: Easing.inOut(Easing.quad) }),
+            withTiming(0, { duration: 250, easing: Easing.inOut(Easing.quad) })
+          )
+        )
+      );
     };
+    
+    // Trigger the animation immediately on mount
+    triggerGhostShake();
+    
+    // Set up interval to trigger the animation every 5 seconds
+    const intervalId = setInterval(triggerGhostShake, GHOST_ANIMATION_INTERVAL);
+    
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
-
-  // Animate to the next capital city
-  const animateToNextCapital = () => {
-    if (!mapRef.current) return;
-    
-    const nextLocation = GLOBAL_CAPITALS[locationIndex.current];
-    
-    // Animate to the location
-    mapRef.current.animateToRegion({
-      latitude: nextLocation.latitude,
-      longitude: nextLocation.longitude,
-      latitudeDelta: 2,  // Wider zoom for global view
-      longitudeDelta: 2,
-    }, 3000);  // Slower animation (3 seconds)
-    
-    setLocationName(nextLocation.name);
-    
-    // Increment the location index (cycle through array)
-    locationIndex.current = (locationIndex.current + 1) % GLOBAL_CAPITALS.length;
-    
-    // Schedule the next animation
-    animationTimer.current = setTimeout(animateToNextCapital, 8000);  // Move every 8 seconds
+  
+  // Create animated style for ghost
+  const ghostAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${ghostRotation.value}deg` }]
+    };
+  });
+  
+  // Check permissions on mount
+  useEffect(() => {
+    checkLocationPermission();
+    checkCameraPermission();
+  }, []);
+  
+  // Check if location permission is granted
+  const checkLocationPermission = async () => {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    setLocationEnabled(status === 'granted');
   };
-
-  // Fetch location name from coordinates
-  const fetchLocationName = async (latitude: number, longitude: number) => {
+  
+  // Check if camera permission is granted
+  const checkCameraPermission = async () => {
     try {
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
+      const { status } = await Camera.getCameraPermissionsAsync();
+      setCameraEnabled(status === 'granted');
+    } catch (error) {
+      console.error("Error checking camera permission:", error);
+    }
+  };
+  
+  // Request location permission
+  const requestLocationPermission = async () => {
+    if (locationEnabled) return; // Already enabled
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationEnabled(status === 'granted');
       
-      if (reverseGeocode.length > 0) {
-        const address = reverseGeocode[0];
-        const cityText = address.city || address.region || 'Unknown Location';
-        setLocationName(cityText);
+      if (status !== 'granted') {
+        Alert.alert(
+          "Permission Denied",
+          "Location permission is required for this feature. Please enable it in your device settings."
+        );
       }
     } catch (error) {
-      console.error('Error getting location name:', error);
-      setLocationName('Unknown Location');
+      console.error("Error requesting location permission:", error);
     }
   };
-
-  // Handle map ready event
-  const onMapReady = () => {
-    setMapReady(true);
+  
+  // Request camera permission
+  const requestCameraPermission = async () => {
+    if (cameraEnabled) return; // Already enabled
+    
+    try {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setCameraEnabled(status === 'granted');
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          "Permission Denied",
+          "Camera permission is required for this feature. Please enable it in your device settings."
+        );
+      }
+    } catch (error) {
+      console.error("Error requesting camera permission:", error);
+      Alert.alert(
+        "Permission Error",
+        "There was an error requesting camera permissions. Please check your device settings."
+      );
+    }
+  };
+  
+  // Check if play is available (both permissions granted)
+  const canPlay = locationEnabled && cameraEnabled;
+  
+  // Handle play button press
+  const handlePlay = () => {
+    if (!canPlay) {
+      Alert.alert(
+        "Permissions Required",
+        "Please enable both location and camera permissions to play the game."
+      );
+      return;
+    }
+    
+    if (onPlay) {
+      onPlay();
+    }
+  };
+  
+  const cardPlayButtonContainer = {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4, // Higher than emojis
   };
 
-  // Handle exit game confirmation
-  const handleExitGame = () => {
-    Alert.alert(
-      "Exit Game",
-      "Are you sure you want to exit the current game?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => setSettingsVisible(false)
-        },
-        {
-          text: "Exit", 
-          style: "destructive",
-          onPress: () => {
-            setSettingsVisible(false);
-            router.replace("/");
-          }
-        }
-      ]
-    );
-  };
-
+  const playButton = () => (
+    <View style={styles.cardPlayButtonContainer}>
+      <TouchableOpacity 
+        style={[
+          styles.playButton, 
+          { opacity: canPlay ? 1 : 0.7 }
+        ]} 
+        onPress={handlePlay}
+        activeOpacity={0.8}
+        disabled={!canPlay}
+      >
+        <Text style={styles.playButtonText}>Play</Text>
+        <View style={styles.coinContainer}>
+          <Text style={styles.coinText}>1</Text>
+          <Image 
+            source={coinEmoji} 
+            style={styles.coinImage} 
+            resizeMode="contain" 
+          />
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+  
   return (
     <View style={styles.container}>
-      {/* Map View */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={{
-          latitude: GLOBAL_CAPITALS[0].latitude,
-          longitude: GLOBAL_CAPITALS[0].longitude,
-          latitudeDelta: 2,
-          longitudeDelta: 2,
-        }}
-        customMapStyle={mapCustomStyle}
-        onMapReady={onMapReady}
-      >
-        {/* Add markers for all capital cities */}
-        {GLOBAL_CAPITALS.map((loc, index) => (
-          <Marker
-            key={index}
-            coordinate={{
-              latitude: loc.latitude,
-              longitude: loc.longitude,
-            }}
-            title={loc.name}
-          >
-            <View style={styles.markerContainer}>
-              <View style={styles.markerDot} />
-              <View style={styles.markerRing} />
-            </View>
-          </Marker>
-        ))}
-        
-        {/* User location marker */}
-        {location && (
-          <Marker
-            coordinate={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-            }}
-            title="Your Location"
-            pinColor="blue"
-          />
-        )}
-      </MapView>
-      
-      {/* Settings Icon */}
-      <SafeAreaView style={styles.settingsContainer}>
-        <TouchableOpacity 
-          style={styles.settingsButton} 
-          onPress={() => setSettingsVisible(!settingsVisible)}
-        >
-          <Image source={settingsEmoji} style={styles.settingsIcon} />
-        </TouchableOpacity>
-        
-        {/* Settings Menu - Conditionally rendered */}
-        {settingsVisible && (
-          <View style={styles.settingsMenu}>
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={handleExitGame}
-            >
-              <Image source={exitEmoji} style={styles.menuItemIcon} />
-              <Text style={styles.menuItemText}>Exit Game</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </SafeAreaView>
-      
-      {/* Location Display Banner */}
-      {locationName && (
-        <View style={styles.locationBanner}>
-          <Text style={styles.locationText}>{locationName}</Text>
-        </View>
-      )}
-      
-      {/* Bottom Gradient */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.8)']}
-        style={styles.bottomGradient}
-      />
-      
-      {/* Game Card */}
-      <SafeAreaView style={styles.cardContent}>
-        <View style={styles.cardContainer}>
+      {/* Game card section with feature tags underneath */}
+      <View style={styles.gameCardSection}>
+        {/* Game Card */}
+        <View style={[styles.gameCardWrapper, { borderRadius: theme.borderRadius }]}>
           <GameCard 
             onPress={() => onOpenInstructions && onOpenInstructions()} 
             onHostPress={() => onOpenInstructions && onOpenInstructions()}
-            onJoinPress={() => {
-              console.log('Join pressed');
-            }}
-            compact={false}
+            onJoinPress={() => console.log('Join pressed')}
+            showCoinIndicator={false}
           />
           
-          {/* Feature Pills */}
-          <View style={styles.pillsContainer}>
-            <FeaturePill 
-              emoji={grinningEmoji} 
-              text="8-16 Players"
-            />
-            <FeaturePill 
-              emoji={globeEmoji} 
-              text="Play Anywhere" 
-            />
-            <FeaturePill 
-              emoji={coinEmoji} 
-              text="3" 
-              onPress={() => onOpenCoinInfo && onOpenCoinInfo()}
-              style={styles.coinPill}
-            />
+          {/* Play Button - Positioned on the card */}
+          {playButton()}
+          
+          {/* Emoji Container for centered position */}
+          <View style={styles.emojiOverlayContainer}>
+            {/* Animated Ghost Emoji */}
+            <Animated.View style={[styles.ghostContainer, ghostAnimatedStyle]}>
+              <Image source={ghostEmoji} style={styles.ghostEmoji} resizeMode="contain" />
+            </Animated.View>
+            
+            {/* Static Thinking Emoji - no animation */}
+            <View style={styles.thinkingContainer}>
+              <Image source={thinkingEmoji} style={styles.thinkingEmoji} resizeMode="contain" />
+            </View>
           </View>
         </View>
-      </SafeAreaView>
+        
+        {/* Feature Tags - positioned to overlap slightly with the card */}
+        <View style={styles.tagsContainer}>
+          <View style={styles.tag}>
+            <Image source={grinningEmoji} style={styles.tagEmoji} />
+            <Text style={styles.tagText}>5-16 Players</Text>
+          </View>
+          
+          <View style={styles.tag}>
+            <Image source={globeEmoji} style={styles.tagEmoji} />
+            <Text style={styles.tagText}>Play Anywhere</Text>
+          </View>
+        </View>
+      </View>
+      
+      {/* Main container for map and status tab */}
+      <View style={styles.mapAndTabContainer}>
+        {/* Black status tab - aligned exactly with the map width */}
+        <View style={[
+          styles.statusTabBackground, 
+          { 
+            borderRadius: theme.borderRadius,
+            backgroundColor: '#2F2E33',
+          }
+        ]}>
+          {/* Status Indicators */}
+          <View style={styles.statusIndicatorsContainer}>
+            {/* Location Status - Now interactive */}
+            <TouchableOpacity 
+              style={styles.statusItem}
+              onPress={requestLocationPermission}
+              activeOpacity={0.7}
+            >
+              <View 
+                style={[
+                  styles.statusDot, 
+                  { 
+                    backgroundColor: locationEnabled 
+                      ? theme.colors.enabledStatus 
+                      : theme.colors.disabledStatus 
+                  }
+                ]} 
+              />
+              <Text style={[
+                styles.statusText,
+                { fontSize: theme.typography.subheaderSize }
+              ]}>
+                {locationEnabled ? 'Location Enabled' : 'Enable Location'}
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Camera Status - Now interactive */}
+            <TouchableOpacity 
+              style={styles.statusItem}
+              onPress={requestCameraPermission}
+              activeOpacity={0.7}
+            >
+              <View 
+                style={[
+                  styles.statusDot, 
+                  { 
+                    backgroundColor: cameraEnabled 
+                      ? theme.colors.enabledStatus 
+                      : theme.colors.disabledStatus 
+                  }
+                ]} 
+              />
+              <Text style={[
+                styles.statusText,
+                { fontSize: theme.typography.subheaderSize }
+              ]}>
+                {cameraEnabled ? 'Camera Enabled' : 'Enable Camera'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Map View - positioned to overlap and truncate the tab */}
+        <View style={[
+          styles.mapContainer, 
+          { 
+            borderRadius: theme.borderRadius,
+            backgroundColor,
+            // Critical: Position the map to overlap the tab
+            position: 'absolute',
+            top: MAP_OFFSET_TOP, // Move the map upwards
+            left: 0,
+            right: 0,
+            bottom: STATUS_BAR_HEIGHT - theme.borderRadius, // This creates the tab effect
+            // Shadow for elevation
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 5,
+          }
+        ]}>
+          {!isLoading && (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              customMapStyle={mapStyle}
+              initialRegion={{
+                latitude,
+                longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              showsUserLocation={true}
+              followsUserLocation={true}
+            >
+              <Marker
+                coordinate={{ latitude, longitude }}
+                title="Your Location"
+              />
+            </MapView>
+          )}
+        </View>
+      </View>
+      
+      {/* Warning Message - Dynamic based on permissions */}
+      {(!locationEnabled || !cameraEnabled) && (
+        <Text style={[
+          styles.warningText,
+          {
+            fontSize: theme.typography.subheaderSize,
+            color: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)'
+          }
+        ]}>
+          ! Enable Location and Camera before playing
+        </Text>
+      )}
     </View>
   );
 }
 
-const mapCustomStyle = [
-  // Dark mode style
-  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+// Dark Map Style
+const darkMapStyle = [
   {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#212121"
+      }
+    ]
   },
   {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    "elementType": "labels.icon",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
   },
   {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#263c3f' }],
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
   },
   {
-    featureType: 'poi.park',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#6b9a76' }],
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#212121"
+      }
+    ]
   },
   {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#38414e' }],
+    "featureType": "administrative",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
   },
   {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#212a37' }],
+    "featureType": "administrative.country",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#9e9e9e"
+      }
+    ]
   },
   {
-    featureType: 'road',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#9ca5b3' }],
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#bdbdbd"
+      }
+    ]
   },
   {
-    featureType: 'road.highway',
-    elementType: 'geometry',
-    stylers: [{ color: '#746855' }],
+    "featureType": "poi",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
   },
   {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1f2835' }],
+    "featureType": "poi.park",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#181818"
+      }
+    ]
   },
   {
-    featureType: 'road.highway',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#f3d19c' }],
+    "featureType": "poi.park",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#616161"
+      }
+    ]
   },
   {
-    featureType: 'transit',
-    elementType: 'geometry',
-    stylers: [{ color: '#2f3948' }],
+    "featureType": "poi.park",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#1b1b1b"
+      }
+    ]
   },
   {
-    featureType: 'transit.station',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    "featureType": "road",
+    "elementType": "geometry.fill",
+    "stylers": [
+      {
+        "color": "#2c2c2c"
+      }
+    ]
   },
   {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#17263c' }],
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#8a8a8a"
+      }
+    ]
   },
   {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#515c6d' }],
+    "featureType": "road.arterial",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#373737"
+      }
+    ]
   },
   {
-    featureType: 'water',
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#17263c' }],
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#3c3c3c"
+      }
+    ]
   },
+  {
+    "featureType": "road.highway.controlled_access",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#4e4e4e"
+      }
+    ]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#616161"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#757575"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#000000"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#3d3d3d"
+      }
+    ]
+  }
 ];
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    gap: 16,
+  },
+  gameCardSection: {
     position: 'relative',
+    marginBottom: 20, // Space before map section
   },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#E8353B',
+  gameCardWrapper: {
+    position: 'relative',
     zIndex: 2,
-    borderWidth: 2,
-    borderColor: '#fff',
+    // Shadow for elevation
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  markerRing: {
+  cardPlayButtonContainer: {
     position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(232, 53, 59, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(232, 53, 59, 0.5)',
-  },
-  locationBanner: {
-    position: 'absolute',
-    top: 60,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    zIndex: 10,
-  },
-  locationText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  bottomGradient: {
-    position: 'absolute',
-    bottom: 0,
+    bottom: 50,
     left: 0,
     right: 0,
-    height: height * 0.5,
-  },
-  cardContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: 80,
-  },
-  cardContainer: {
-    alignItems: 'center',
-    marginTop: 'auto',
-    marginBottom: 20,
-  },
-  pillsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-    width: '100%',
-  },
-  coinPill: {
-    paddingHorizontal: 24,
-  },
-  // New styles for the settings menu
-  settingsContainer: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    zIndex: 20,
-  },
-  settingsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    zIndex: 4, // Higher than emojis
   },
-  settingsIcon: {
-    width: 28,
-    height: 28,
-  },
-  settingsMenu: {
+  emojiOverlayContainer: {
     position: 'absolute',
-    top: 54,
+    top: 0,
+    left: 0,
     right: 0,
-    backgroundColor: 'rgba(30, 30, 30, 0.95)',
-    borderRadius: 12,
-    padding: 8,
-    width: 180,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  menuItem: {
+    bottom: 70, // Make room for play button
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingBottom: 20, // Shift emojis up a bit from the center
+    zIndex: 3, // Place above game card
   },
-  menuItemIcon: {
+  ghostContainer: {
+    marginRight: 10,
+    marginTop: 100, // Space between the two emojis
+  },
+  ghostEmoji: {
+    width: 160,
+    height: 160,
+  },
+  thinkingContainer: {
+    marginLeft: -60,
+    marginTop: 130, // Space between the two emojis
+  },
+  thinkingEmoji: {
+    width: 110,
+    height: 110,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: TAGS_VERTICAL_OFFSET, // Negative margin to overlap with card
+    gap: 10, // Space between tags
+    paddingHorizontal: 15, 
+    paddingTop: 3,
+    zIndex: 1,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'flex-end', // Align items to the bottom
+    backgroundColor: '#2F2E33',
+    height: TAG_HEIGHT, // Fixed height for the tags
+    paddingBottom: 8, // Bottom padding to position content
+    paddingHorizontal: 15,
+    borderRadius: 14,
+    minWidth: 120,
+  },
+  tagEmoji: {
     width: 24,
     height: 24,
-    marginRight: 12,
+    marginRight: 8,
+    marginBottom: 0, // Slight adjustment for vertical alignment
   },
-  menuItemText: {
+  tagText: {
     color: '#FFFFFF',
+    fontSize: 13,
+    marginBottom: 5, // Slight adjustment for vertical alignment
+    fontWeight: '400',
+  },
+  mapAndTabContainer: {
+    height: MAP_HEIGHT,
+    position: 'relative',
+    marginBottom: 10,
+  },
+  statusTabBackground: {
+    position: 'absolute',
+    bottom: 11,
+    left: 0, 
+    right: 0,
+    height: STATUS_BAR_HEIGHT,
+    paddingVertical: 0,
+  },
+  statusIndicatorsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    bottom: -10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  mapContainer: {
+    overflow: 'hidden',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  statusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8, // Increased touch target
+    paddingHorizontal: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    color: '#FFFFFF',
+    fontWeight: '500', // Medium weight
+  },
+  warningText: {
+    textAlign: 'center',
+    fontWeight: '500', // Medium weight
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    minWidth: 120, // Restore original width
+  },
+  playButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#000000',
+    marginRight: 8, // Restore margin for coin container
+  },
+  coinContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2F2E33',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  coinText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginRight: 4,
+  },
+  coinImage: {
+    width: 18,
+    height: 18,
   },
 }); 

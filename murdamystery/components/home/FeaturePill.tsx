@@ -1,39 +1,44 @@
 import React from 'react';
-import { StyleSheet, View, Image, ViewStyle } from 'react-native';
-import { Typography } from '@/components/Typography';
+import { StyleSheet, View, Text, Image, TouchableOpacity, ViewStyle } from 'react-native';
 
-interface FeaturePillProps {
-  emoji: any;
+export interface FeaturePillProps {
+  emoji: any; // Source for Image component
   text: string;
   style?: ViewStyle;
+  onPress?: () => void;
 }
 
-export function FeaturePill({ emoji, text, style }: FeaturePillProps) {
+export function FeaturePill({ emoji, text, style, onPress }: FeaturePillProps) {
+  const PillComponent = onPress ? TouchableOpacity : View;
+  
   return (
-    <View style={[styles.pill, style]}>
+    <PillComponent 
+      style={[styles.container, style]}
+      {...(onPress && { onPress })}
+    >
       <Image source={emoji} style={styles.emoji} />
-      <Typography style={styles.text}>{text}</Typography>
-    </View>
+      <Text style={styles.text}>{text}</Text>
+    </PillComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  pill: {
+  container: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(50, 50, 50, 0.8)',
-    borderRadius: 24,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#2F2E33',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
   },
   emoji: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
+    width: 20,
+    height: 20,
   },
   text: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 13,
+    fontWeight: '500', // Medium
   },
 }); 

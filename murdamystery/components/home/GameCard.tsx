@@ -1,215 +1,193 @@
-import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Dimensions, Text, Image } from 'react-native';
-import { Typography } from '@/components/Typography';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Image, ImageBackground, Dimensions } from 'react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 
-// Get both width and height for proper proportions
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 32;
-const CARD_HEIGHT = width * 0.7;
+// Get screen width to calculate proper scaling
+const { width: screenWidth } = Dimensions.get('window');
 
-// Import the coin emoji
-const coinEmoji = require('@/assets/images/emojis/assets/Coin/3D/coin_3d.png');
+// Define exact dimensions from design
+const CARD_WIDTH = 363;
+const CARD_HEIGHT = 320;
 
 interface GameCardProps {
-  onPress: () => void;
+  onPress?: () => void;
   onHostPress?: () => void;
   onJoinPress?: () => void;
   compact?: boolean;
+  showCoinIndicator?: boolean;
 }
 
 export function GameCard({ 
   onPress, 
   onHostPress, 
-  onJoinPress, 
-  compact = false 
+  onJoinPress,
+  compact = false,
+  showCoinIndicator = true
 }: GameCardProps) {
-  const cardHeight = compact ? CARD_HEIGHT * 0.8 : CARD_HEIGHT;
+  // Get the current theme
+  const colorScheme = useColorScheme() ?? 'dark';
+  
+  // Animation value for the info button
+  const scale = useSharedValue(1);
+  
+  // Set up the pulsing animation
+  useEffect(() => {
+    // Create a pulsing animation sequence
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1, // Repeat infinitely
+      true // Reverse each cycle
+    );
+  }, []);
+  
+  // Create the animated style for the info button
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      backgroundColor: 'rgba(255, 255, 255, 0.3)',
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    };
+  });
+  
+  // Import coin emoji asset
+  const coinEmoji = require('@/assets/images/emojis/assets/Coin/3D/coin_3d.png');
+  
+  // Banner images based on theme
+  const bannerDark = require('@/assets/images/Banner-dark.png');
+  const bannerLight = require('@/assets/images/Banner-light.png');
+  
+  // Select the appropriate banner based on theme
+  const bannerSource = colorScheme === 'dark' ? bannerDark : bannerLight;
   
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       activeOpacity={0.9}
+      style={[
+        styles.container,
+        compact && styles.compactContainer
+      ]}
       onPress={onPress}
-      style={[styles.container, compact && styles.compactContainer]}
     >
-      <View style={[styles.cardWrapper, { height: cardHeight }]}>
-        {/* Clean, text-centered card design */}
-        <View style={styles.card}>
-          {/* Top Label */}
-          <Text style={styles.topLabel}>Don't trust anyone</Text>
-          
-          {/* Main Title */}
-          <Text style={styles.mainTitle}>Murda Mystery</Text>
-          
-          {/* Tags */}
-          <View style={styles.tagsContainer}>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>mystery</Text>
+      <ImageBackground
+        source={bannerSource}
+        style={styles.bannerBackground}
+        imageStyle={styles.bannerImage}
+        resizeMode="cover"
+      >
+        <View style={styles.contentContainer}>
+          {/* Title and Info Button */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>Murda Mystery</Text>
+              <Text style={styles.subtitle}>GPS-Game</Text>
             </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>group game</Text>
-            </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>detective</Text>
-            </View>
-          </View>
-          
-          {/* Buttons Container */}
-          <View style={styles.buttonsContainer}>
-            {/* Host Button */}
-            <TouchableOpacity 
-              style={styles.hostButton} 
-              onPress={() => onHostPress ? onHostPress() : onPress()}
-            >
-              <IconSymbol name="plus" size={18} color="#fff" style={styles.buttonIcon} />
-              <Text style={styles.hostButtonText}>Host</Text>
-              
-              {/* Inline coin indicator */}
-              <View style={styles.inlineCoinContainer}>
-                <Image source={coinEmoji} style={styles.coinImage} />
-                <Text style={styles.hostCoinText}>1</Text>
-              </View>
-            </TouchableOpacity>
             
-            {/* Join Button */}
             <TouchableOpacity 
-              style={styles.joinButton} 
-              onPress={() => onJoinPress ? onJoinPress() : onPress()}
+              onPress={() => {
+                console.log('Info button clicked');
+                if (onPress) {
+                  onPress();
+                }
+              }}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
-              <IconSymbol name="arrow.right" size={18} color="#1A1A1A" style={styles.buttonIcon} />
-              <Text style={styles.joinButtonText}>Join</Text>
-              
-              {/* Inline coin indicator */}
-              <View style={styles.inlineCoinContainer}>
-                <Image source={coinEmoji} style={styles.coinImage} />
-                <Text style={styles.joinCoinText}>1</Text>
-              </View>
+              <Animated.View style={animatedStyle}>
+                <Text style={styles.infoButtonText}>!</Text>
+              </Animated.View>
             </TouchableOpacity>
           </View>
+          
+          {/* Coin Indicator */}
+          {showCoinIndicator !== false && (
+            <View style={styles.coinContainer}>
+              <View style={styles.coinIndicator}>
+                <Image source={coinEmoji} style={styles.coinIcon} />
+                <Text style={styles.coinText}>1/1</Text>
+              </View>
+            </View>
+          )}
         </View>
-      </View>
+      </ImageBackground>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    marginVertical: 16,
+    width: '100%',
+    aspectRatio: CARD_WIDTH / CARD_HEIGHT, // Exactly 363/320 = 1.134
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
   compactContainer: {
-    marginVertical: 8,
+    aspectRatio: 3,
   },
-  cardWrapper: {
-    width: CARD_WIDTH,
-    position: 'relative',
-    borderRadius: 24,
-  },
-  card: {
+  bannerBackground: {
+    flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#E8353B', // Red background like your murder mystery theme
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  topLabel: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 14,
-    marginBottom: 14,
-    fontWeight: '500',
-    textAlign: 'center',
+  bannerImage: {
+    borderRadius: 16,
   },
-  mainTitle: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
+  contentContainer: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'space-between',
   },
-  subtitle: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 18, // Reduced to make room for tags
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  tag: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginHorizontal: 4,
-  },
-  tagText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  buttonsContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 10,
+    alignItems: 'flex-start',
   },
-  hostButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 0.48,
-  },
-  joinButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 0.48,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  hostButtonText: {
-    fontSize: 14,
+  title: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    marginRight: 8,
+    fontSize: 17,
+    fontWeight: '500', // Medium
   },
-  joinButtonText: {
-    fontSize: 14,
-    color: '#1A1A1A',
-    fontWeight: '600',
-    marginRight: 8,
+  subtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '500', // Medium
+    marginTop: 4,
   },
-  inlineCoinContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 4,
-  },
-  coinImage: {
-    width: 14,
-    height: 14,
-    marginRight: 2,
-  },
-  hostCoinText: {
+  infoButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
   },
-  joinCoinText: {
-    color: '#1A1A1A',
-    fontSize: 12,
-    fontWeight: 'bold',
+  coinContainer: {
+    alignItems: 'flex-end',
+  },
+  coinIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  coinIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 6,
+  },
+  coinText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500', // Medium
   },
 }); 
