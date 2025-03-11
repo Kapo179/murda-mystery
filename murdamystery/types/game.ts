@@ -6,13 +6,13 @@
 export type PlayerStatus = 'waiting' | 'ready' | 'playing' | 'eliminated' | 'spectating';
 
 // Available roles in the game
-export type Role = 'mafia' | 'detective' | 'civilian';
+export type Role = 'hunter' | 'alive';
 
 // Game phases
-export type GamePhase = 'lobby' | 'night' | 'day' | 'voting' | 'results' | 'ended';
+export type GamePhase = 'lobby' | 'active' | 'ended';
 
-// Action types for voting
-export type ActionType = 'kill' | 'investigate' | 'vote';
+// Action types for tagging
+export type ActionType = 'tag' | 'eliminate';
 
 // Player representation
 export interface Player {
@@ -27,7 +27,7 @@ export interface Player {
     latitude: number;
     longitude: number;
   };
-  votes?: number; // For voting results
+  lastUpdated?: number; // For position freshness
 }
 
 // Role assignment
@@ -64,13 +64,12 @@ export interface Evidence {
 // Game settings
 export interface GameSettings {
   playerCount: number;
-  mafiaCount: number;
-  detectiveCount: number;
+  hunterCount: number;
   enableLocation: boolean;
-  enableProximityKill: boolean;
-  proximityDistance: number; // in meters
-  dayDuration: number; // in minutes
-  nightDuration: number; // in minutes
+  enableProximityTag: boolean;
+  tagDistance: number; // in meters
+  gameDuration: number; // in minutes
+  hunterRevealTime: number; // in seconds - time before hunters are revealed to alive players
 }
 
 // Game status
@@ -92,7 +91,6 @@ export interface GameState {
   lobbyCode: string | null;
   status: GameStatus;
   phase: GamePhase;
-  turn: number;
   
   // Players
   players: Player[];
@@ -106,7 +104,7 @@ export interface GameState {
   // Game progress
   actions: GameAction[];
   evidence: Evidence[];
-  winner: 'mafia' | 'civilians' | null;
+  winner: 'hunters' | 'last-survivor' | null;
   
   // UI state tracking
   isLoading: boolean;
@@ -118,8 +116,8 @@ export interface GameState {
   playerCount: number;
   alivePlayers: number;
   gamePhase: 'lobby' | 'active' | 'ended';
-  votingActive: boolean;
-  votingTimeRemaining?: number;
+  startTime?: number;
+  endTime?: number;
 }
 
 // Initial/default game state
@@ -128,20 +126,18 @@ export const initialGameState: GameState = {
   lobbyCode: null,
   status: 'idle',
   phase: 'lobby',
-  turn: 0,
   
   players: [],
   currentPlayerId: null,
   
   settings: {
     playerCount: 0,
-    mafiaCount: 1,
-    detectiveCount: 1,
-    enableLocation: false,
-    enableProximityKill: false,
-    proximityDistance: 100,
-    dayDuration: 10,
-    nightDuration: 5
+    hunterCount: 1,
+    enableLocation: true,
+    enableProximityTag: true,
+    tagDistance: 15, // 15 meters
+    gameDuration: 30, // 30 minutes
+    hunterRevealTime: 60, // 60 seconds
   },
   
   roles: [],
@@ -159,8 +155,6 @@ export const initialGameState: GameState = {
   playerCount: 0,
   alivePlayers: 0,
   gamePhase: 'lobby',
-  votingActive: false,
-  votingTimeRemaining: undefined
 };
 
 // Typed actions for the reducer
@@ -180,6 +174,7 @@ export type GameActionType =
   | { type: 'UPDATE_PLAYER_POSITION'; payload: { playerId: string; latitude: number; longitude: number } }
   | { type: 'ADD_PLAYER'; payload: Player }
   | { type: 'REMOVE_PLAYER'; payload: { playerId: string } }
+  | { type: 'TAG_PLAYER'; payload: { hunterId: string; targetId: string } }
   
   // Game setup
   | { type: 'UPDATE_SETTINGS'; payload: Partial<GameSettings> }
@@ -189,11 +184,10 @@ export type GameActionType =
   | { type: 'ASSIGN_ROLES'; payload: { roleAssignments: RoleAssignment[] } }
   
   // Game progress
-  | { type: 'ADVANCE_TURN' }
   | { type: 'CHANGE_PHASE'; payload: { phase: GamePhase } }
   | { type: 'PERFORM_ACTION'; payload: GameAction }
   | { type: 'SUBMIT_EVIDENCE'; payload: Evidence }
-  | { type: 'END_GAME'; payload: { winner: 'mafia' | 'civilians' } }
+  | { type: 'END_GAME'; payload: { winner: 'hunters' | 'last-survivor' } }
   
   // State management
   | { type: 'SET_LOADING'; payload: { operation: string | null } }
@@ -205,15 +199,20 @@ export interface CurrentPlayerInfo {
   player: Player | null;
   isHost: boolean;
   isAlive: boolean;
-  isMafia: boolean;
-  isDetective: boolean;
-  isCivilian: boolean;
-  canPerformAction: boolean;
+  isHunter: boolean;
+  isTarget: boolean;
+  canTag: boolean;
 }
 
 // Constants
-export const MIN_PLAYERS = 4;
-export const MAX_PLAYERS = 12;
+export const MIN_PLAYERS = 3;
+export const MAX_PLAYERS = 20;
 
 // Game roles type
-export type GameRole = 'mafia' | 'civilian' | 'detective'; 
+export type GameRole = 'hunter' | 'alive';
+
+// Game role constants
+export const GAME_ROLES = {
+  HUNTER: 'hunter' as GameRole,
+  ALIVE: 'alive' as GameRole,
+}; 
